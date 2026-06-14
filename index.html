@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <!-- sidebar injected by app.js -->
+      <div class="main">
+        <div class="topbar">
+          <span class="topbar-title">Dashboard</span>
+          <div class="topbar-right">
+            <span class="status-dot"></span>
+            <span id="db-status">Connected</span>
+            <span>|</span>
+            <span id="today-date"></span>
+          </div>
+        </div>
+
+        <div class="page-content">
+          <div class="page-header">
+            <div>
+              <h1>Good day! ☕</h1>
+              <p>Here's a snapshot of your inventory.</p>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="stat-grid" id="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">Total Items</div>
+              <div class="stat-value" id="stat-items">—</div>
+              <div class="stat-sub">active SKUs</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Ingredients</div>
+              <div class="stat-value" id="stat-ingredients">—</div>
+              <div class="stat-sub">in item master</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Menu Items</div>
+              <div class="stat-value" id="stat-menu">—</div>
+              <div class="stat-sub">with recipes</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Suppliers</div>
+              <div class="stat-value" id="stat-suppliers">—</div>
+              <div class="stat-sub">active</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Purchases</div>
+              <div class="stat-value" id="stat-purchases">—</div>
+              <div class="stat-sub">all time transactions</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Productions</div>
+              <div class="stat-value" id="stat-productions">—</div>
+              <div class="stat-sub">batch records</div>
+            </div>
+          </div>
+
+          <!-- Two-column layout -->
+          <div
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+            class="dashboard-cols"
+          >
+            <!-- Recent Purchases -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Recent Purchases</span>
+                <a href="purchase.html" class="btn btn-secondary btn-sm"
+                  >View All</a
+                >
+              </div>
+              <div class="table-wrap">
+                <table class="erp-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Item</th>
+                      <th>Qty</th>
+                      <th>Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recent-purchases">
+                    <tr class="loading-row">
+                      <td colspan="4"><div class="loader"></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Recent Productions -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Recent Productions</span>
+                <a href="production.html" class="btn btn-secondary btn-sm"
+                  >View All</a
+                >
+              </div>
+              <div class="table-wrap">
+                <table class="erp-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Batch</th>
+                      <th>Menu Item</th>
+                      <th>Yield</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recent-productions">
+                    <tr class="loading-row">
+                      <td colspan="4"><div class="loader"></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Current Stock snapshot -->
+            <div class="card" style="grid-column: 1/-1">
+              <div class="card-header">
+                <span class="card-title">Stock Snapshot</span>
+                <a href="stock-current.html" class="btn btn-secondary btn-sm"
+                  >Full Report</a
+                >
+              </div>
+              <div class="table-wrap">
+                <table class="erp-table">
+                  <thead>
+                    <tr>
+                      <th>Item ID</th>
+                      <th>Item Name</th>
+                      <th>Current Stock</th>
+                      <th>Unit</th>
+                      <th>Last Movement</th>
+                    </tr>
+                  </thead>
+                  <tbody id="stock-snapshot">
+                    <tr class="loading-row">
+                      <td colspan="5"><div class="loader"></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <!-- /dashboard-cols -->
+        </div>
+        <!-- /page-content -->
+      </div>
+      <!-- /main -->
+    </div>
+    <!-- /layout -->
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      (async () => {
+        const db = getSupabase();
+
+        document.getElementById("today-date").textContent =
+          new Date().toLocaleDateString("id-ID", {
+            weekday: "short",
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+
+        try {
+          const [items, suppliers, purchases, productions] = await Promise.all([
+            db
+              .from("items")
+              .select("category", { count: "exact" })
+              .eq("is_active", true),
+            db
+              .from("suppliers")
+              .select("supplier_id", { count: "exact" })
+              .eq("is_active", true),
+            db.from("purchase_transactions").select("id", { count: "exact" }),
+            db.from("production_transactions").select("id", { count: "exact" }),
+          ]);
+
+          const allItems = items.data || [];
+          document.getElementById("stat-items").textContent = items.count ?? 0;
+          document.getElementById("stat-ingredients").textContent =
+            allItems.filter((i) => i.category === "Ingredient").length;
+          document.getElementById("stat-menu").textContent = allItems.filter(
+            (i) => i.category === "Menu",
+          ).length;
+          document.getElementById("stat-suppliers").textContent =
+            suppliers.count ?? 0;
+          document.getElementById("stat-purchases").textContent =
+            purchases.count ?? 0;
+          document.getElementById("stat-productions").textContent =
+            productions.count ?? 0;
+        } catch (e) {
+          document.getElementById("db-status").textContent = "Disconnected";
+          document.getElementById("db-status").style.color = "var(--red)";
+          document.querySelector(".status-dot").style.background = "var(--red)";
+        }
+
+        // Recent purchases
+        const { data: rp } = await db
+          .from("purchase_transactions")
+          .select(
+            "date, item_id, qty_purchase_unit, total_cost, items(item_name)",
+          )
+          .order("date", { ascending: false })
+          .limit(5);
+
+        const rpTbody = document.getElementById("recent-purchases");
+        if (rp?.length) {
+          rpTbody.innerHTML = rp
+            .map(
+              (r) => `
+      <tr>
+        <td class="muted">${fmtDate(r.date)}</td>
+        <td>${r.items?.item_name ?? r.item_id}</td>
+        <td class="mono">${fmtNum(r.qty_purchase_unit)}</td>
+        <td class="text-amber">${fmtCurrency(r.total_cost)}</td>
+      </tr>`,
+            )
+            .join("");
+        } else {
+          rpTbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">No purchases yet</td></tr>`;
+        }
+
+        // Recent productions
+        const { data: prod } = await db
+          .from("production_transactions")
+          .select(
+            "date, batch_no, menu_item_id, actual_yield_gram, items(item_name)",
+          )
+          .order("date", { ascending: false })
+          .limit(5);
+
+        const prodTbody = document.getElementById("recent-productions");
+        if (prod?.length) {
+          prodTbody.innerHTML = prod
+            .map(
+              (r) => `
+      <tr>
+        <td class="muted">${fmtDate(r.date)}</td>
+        <td class="mono">${r.batch_no}</td>
+        <td>${r.items?.item_name ?? r.menu_item_id}</td>
+        <td class="text-green">${fmtNum(r.actual_yield_gram)} gr</td>
+      </tr>`,
+            )
+            .join("");
+        } else {
+          prodTbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">No productions yet</td></tr>`;
+        }
+
+        // Stock snapshot
+        const { data: stock } = await db
+          .from("stock_current")
+          .select("*")
+          .limit(15);
+        const stockTbody = document.getElementById("stock-snapshot");
+        if (stock?.length) {
+          stockTbody.innerHTML = stock
+            .map(
+              (r) => `
+      <tr>
+        <td class="mono">${r.item_id}</td>
+        <td>${r.item_name}</td>
+        <td class="mono ${r.current_stock <= 0 ? "text-red" : "text-green"}">${fmtNum(r.current_stock)}</td>
+        <td class="muted">${r.usage_unit ?? "—"}</td>
+        <td class="muted">${fmtDate(r.last_updated)}</td>
+      </tr>`,
+            )
+            .join("");
+        } else {
+          stockTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No stock data</td></tr>`;
+        }
+      })();
+    </script>
+  </body>
+</html>

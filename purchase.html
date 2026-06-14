@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Purchase — Cafe ERP</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <div class="main">
+        <div class="topbar">
+          <span class="topbar-title">Purchase Transactions</span>
+          <div class="topbar-right">
+            <span class="status-dot"></span><span>Cafe ERP</span>
+          </div>
+        </div>
+        <div class="page-content">
+          <div class="page-header">
+            <div>
+              <h1>Purchases</h1>
+              <p>Record incoming stock from suppliers</p>
+            </div>
+            <button class="btn btn-primary" id="btn-add">
+              ＋ New Purchase
+            </button>
+          </div>
+
+          <!-- Summary cards -->
+          <div class="stat-grid" style="margin-bottom: 24px">
+            <div class="stat-card">
+              <div class="stat-label">Total Transactions</div>
+              <div class="stat-value" id="stat-total">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Spend</div>
+              <div class="stat-value" id="stat-spend" style="font-size: 18px">
+                —
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Pending Process</div>
+              <div class="stat-value text-red" id="stat-pending">—</div>
+            </div>
+          </div>
+
+          <div class="filter-bar">
+            <div class="search-input-wrap">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                id="search"
+                class="form-control"
+                placeholder="Search item, supplier, ref…"
+                oninput="applyFilter()"
+              />
+            </div>
+            <select
+              id="filter-status"
+              class="form-control"
+              style="width: 160px"
+              onchange="applyFilter()"
+            >
+              <option value="">All Status</option>
+              <option value="true">Processed</option>
+              <option value="false">Pending</option>
+            </select>
+            <input
+              type="date"
+              id="filter-from"
+              class="form-control"
+              style="width: 150px"
+              onchange="applyFilter()"
+            />
+            <input
+              type="date"
+              id="filter-to"
+              class="form-control"
+              style="width: 150px"
+              onchange="applyFilter()"
+            />
+          </div>
+
+          <div class="card">
+            <div class="table-wrap">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Supplier</th>
+                    <th>Item</th>
+                    <th>Qty (Purchase Unit)</th>
+                    <th>Unit Price</th>
+                    <th>Total Cost</th>
+                    <th>Ref</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="purchase-tbody">
+                  <tr class="loading-row">
+                    <td colspan="9"><div class="loader"></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal-purchase">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title" id="modal-p-title">New Purchase</span>
+          <button class="btn-icon" onclick="closeModal('modal-purchase')">
+            ✕
+          </button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-p-id" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input type="date" id="p-date" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Supplier</label>
+              <select id="p-supplier" class="form-control"></select>
+            </div>
+            <div class="form-group" style="grid-column: 1/-1">
+              <label class="form-label">Item</label>
+              <select
+                id="p-item"
+                class="form-control"
+                onchange="autofillUnit()"
+              ></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Qty (Purchase Unit)</label>
+              <input
+                type="number"
+                id="p-qty"
+                class="form-control"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Unit Price (Rp)</label>
+              <input
+                type="number"
+                id="p-price"
+                class="form-control"
+                min="0"
+                step="1"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Reference / Invoice</label>
+              <input
+                type="text"
+                id="p-ref"
+                class="form-control"
+                placeholder="Optional"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Cost</label>
+              <input
+                type="text"
+                id="p-total"
+                class="form-control"
+                disabled
+                placeholder="Auto-calculated"
+                style="opacity: 0.7"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Processed Status</label>
+            <select id="p-status" class="form-control">
+              <option value="false">Pending</option>
+              <option value="true">Processed</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            class="btn btn-secondary"
+            onclick="closeModal('modal-purchase')"
+          >
+            Cancel
+          </button>
+          <button class="btn btn-primary" onclick="savePurchase()">
+            Save Purchase
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      const db = getSupabase();
+      let all = [],
+        suppliers = [],
+        items = [];
+
+      async function load() {
+        const [pt, sup, itm] = await Promise.all([
+          db
+            .from("purchase_transactions")
+            .select(
+              "*, items(item_name, purchase_unit), suppliers(supplier_name)",
+            )
+            .order("date", { ascending: false }),
+          db.from("suppliers").select("*").eq("is_active", true),
+          db
+            .from("items")
+            .select("*")
+            .eq("is_active", true)
+            .neq("category", "Final Menu")
+            .order("item_name"),
+        ]);
+        all = pt.data || [];
+        suppliers = sup.data || [];
+        items = itm.data || [];
+        renderStats();
+        render(all);
+        populateSelects();
+      }
+
+      function renderStats() {
+        document.getElementById("stat-total").textContent = all.length;
+        const spend = all.reduce((s, r) => s + (r.total_cost || 0), 0);
+        document.getElementById("stat-spend").textContent = fmtCurrency(spend);
+        document.getElementById("stat-pending").textContent = all.filter(
+          (r) => !r.processed_status,
+        ).length;
+      }
+
+      function render(data) {
+        const tbody = document.getElementById("purchase-tbody");
+        if (!data.length) {
+          tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">↓</div><p>No purchase records</p></div></td></tr>`;
+          return;
+        }
+        tbody.innerHTML = data
+          .map(
+            (r) => `
+    <tr>
+      <td class="muted">${fmtDate(r.date)}</td>
+      <td>${r.suppliers?.supplier_name ?? r.supplier_id ?? "—"}</td>
+      <td><strong>${r.items?.item_name ?? r.item_id}</strong></td>
+      <td class="mono">${fmtNum(r.qty_purchase_unit)} <span style="color:var(--text-dim)">${r.items?.purchase_unit ?? ""}</span></td>
+      <td class="muted">${fmtCurrency(r.unit_price)}</td>
+      <td class="text-amber fw-mono">${fmtCurrency(r.total_cost)}</td>
+      <td class="muted">${r.ref ?? "—"}</td>
+      <td><span class="badge ${r.processed_status ? "badge-green" : "badge-amber"}">${r.processed_status ? "Processed" : "Pending"}</span></td>
+      <td style="display:flex;gap:4px">
+        <button class="btn-icon" title="Edit" onclick="editRow(${r.id})">✏</button>
+        <button class="btn-icon" title="Delete" style="color:var(--red)" onclick="deleteRow(${r.id})">✕</button>
+      </td>
+    </tr>`,
+          )
+          .join("");
+      }
+
+      function applyFilter() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const st = document.getElementById("filter-status").value;
+        const fr = document.getElementById("filter-from").value;
+        const to = document.getElementById("filter-to").value;
+        render(
+          all.filter((r) => {
+            const name = (r.items?.item_name ?? r.item_id ?? "").toLowerCase();
+            const sup = (
+              r.suppliers?.supplier_name ??
+              r.supplier_id ??
+              ""
+            ).toLowerCase();
+            const ref = (r.ref ?? "").toLowerCase();
+            return (
+              (!q || name.includes(q) || sup.includes(q) || ref.includes(q)) &&
+              (st === "" || String(r.processed_status) === st) &&
+              (!fr || r.date >= fr) &&
+              (!to || r.date <= to)
+            );
+          }),
+        );
+      }
+
+      function populateSelects() {
+        document.getElementById("p-supplier").innerHTML =
+          `<option value="">— No Supplier —</option>` +
+          suppliers
+            .map(
+              (s) =>
+                `<option value="${s.supplier_id}">${s.supplier_name}</option>`,
+            )
+            .join("");
+        document.getElementById("p-item").innerHTML = items
+          .map(
+            (i) =>
+              `<option value="${i.item_id}" data-unit="${i.purchase_unit ?? ""}">${i.item_name} (${i.purchase_unit ?? "pcs"})</option>`,
+          )
+          .join("");
+      }
+
+      function autofillUnit() {}
+
+      function calcTotal() {
+        const qty = parseFloat(document.getElementById("p-qty").value) || 0;
+        const price = parseFloat(document.getElementById("p-price").value) || 0;
+        document.getElementById("p-total").value =
+          qty && price ? fmtCurrency(qty * price) : "";
+      }
+
+      document.getElementById("p-qty").addEventListener("input", calcTotal);
+      document.getElementById("p-price").addEventListener("input", calcTotal);
+
+      function resetForm() {
+        document.getElementById("modal-p-title").textContent = "New Purchase";
+        document.getElementById("edit-p-id").value = "";
+        document.getElementById("p-date").value = new Date()
+          .toISOString()
+          .split("T")[0];
+        document.getElementById("p-supplier").value = "";
+        document.getElementById("p-qty").value = "";
+        document.getElementById("p-price").value = "";
+        document.getElementById("p-ref").value = "";
+        document.getElementById("p-total").value = "";
+        document.getElementById("p-status").value = "false";
+      }
+
+      function editRow(id) {
+        const r = all.find((x) => x.id === id);
+        if (!r) return;
+        document.getElementById("modal-p-title").textContent = "Edit Purchase";
+        document.getElementById("edit-p-id").value = r.id;
+        document.getElementById("p-date").value = r.date;
+        document.getElementById("p-supplier").value = r.supplier_id ?? "";
+        document.getElementById("p-item").value = r.item_id;
+        document.getElementById("p-qty").value = r.qty_purchase_unit;
+        document.getElementById("p-price").value = r.unit_price;
+        document.getElementById("p-ref").value = r.ref ?? "";
+        document.getElementById("p-total").value = fmtCurrency(r.total_cost);
+        document.getElementById("p-status").value = String(r.processed_status);
+        openModal("modal-purchase");
+      }
+
+      async function deleteRow(id) {
+        if (!confirm("Delete this purchase record?")) return;
+        const { error } = await db
+          .from("purchase_transactions")
+          .delete()
+          .eq("id", id);
+        if (error) {
+          handleSbError(error, "Delete");
+          return;
+        }
+        showToast("Purchase deleted");
+        load();
+      }
+
+      async function savePurchase() {
+        const payload = {
+          date: document.getElementById("p-date").value,
+          supplier_id: document.getElementById("p-supplier").value || null,
+          item_id: document.getElementById("p-item").value,
+          qty_purchase_unit: Number(document.getElementById("p-qty").value),
+          unit_price: Number(document.getElementById("p-price").value),
+          ref: document.getElementById("p-ref").value.trim() || null,
+          processed_status:
+            document.getElementById("p-status").value === "true",
+        };
+        if (!payload.date || !payload.item_id || !payload.qty_purchase_unit) {
+          showToast("Date, Item and Qty are required", "error");
+          return;
+        }
+        const editId = document.getElementById("edit-p-id").value;
+        let error;
+        if (editId) {
+          ({ error } = await db
+            .from("purchase_transactions")
+            .update(payload)
+            .eq("id", editId));
+        } else {
+          ({ error } = await db.from("purchase_transactions").insert(payload));
+        }
+        if (error) {
+          handleSbError(error, "Save purchase");
+          return;
+        }
+
+        // Ledger write + last_purchase_cost update are handled, automatically by the purchase_after_save trigger in Supabase.
+        // if (payload.processed_status && !editId) {
+        //   const itemData = items.find(i => i.item_id === payload.item_id);
+        //   const inQty = payload.qty_purchase_unit * (itemData?.conversion_to_usage ?? 1);
+        //   await db.from('stock_ledger').insert({
+        //     date: payload.date,
+        //     item_id: payload.item_id,
+        //     in_qty: inQty,
+        //     out_qty: 0,
+        //     source: 'PURCHASE',
+        //     ref: payload.ref ?? null,
+        //   });
+        // }
+
+        showToast(editId ? "Purchase updated!" : "Purchase saved!");
+        closeModal("modal-purchase");
+        load();
+      }
+
+      document.getElementById("btn-add").addEventListener("click", () => {
+        resetForm();
+        openModal("modal-purchase");
+      });
+      load();
+    </script>
+  </body>
+</html>

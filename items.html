@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Items — Cafe ERP</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <div class="main">
+        <div class="topbar">
+          <span class="topbar-title">Item Master</span>
+          <div class="topbar-right">
+            <span class="status-dot"></span>
+            <span>Cafe ERP</span>
+          </div>
+        </div>
+        <div class="page-content">
+          <div class="page-header">
+            <div>
+              <h1>Items</h1>
+              <p>Ingredients, Menu Items, Packaging &amp; Others</p>
+            </div>
+            <button class="btn btn-primary" onclick="openModal('modal-item')">
+              ＋ Add Item
+            </button>
+          </div>
+
+          <div class="filter-bar">
+            <div class="search-input-wrap">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                id="search"
+                class="form-control"
+                placeholder="Search by name or ID…"
+                oninput="applyFilter()"
+              />
+            </div>
+            <select
+              id="filter-cat"
+              class="form-control"
+              style="width: 160px"
+              onchange="applyFilter()"
+            >
+              <option value="">All Categories</option>
+              <option>Ingredient</option>
+              <option>Menu</option>
+              <option>Packaging</option>
+              <option>Other</option>
+            </select>
+            <select
+              id="filter-active"
+              class="form-control"
+              style="width: 130px"
+              onchange="applyFilter()"
+            >
+              <option value="">Active &amp; Inactive</option>
+              <option value="true">Active Only</option>
+              <option value="false">Inactive Only</option>
+            </select>
+          </div>
+
+          <div class="card">
+            <div class="table-wrap">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Item ID</th>
+                    <th>Item Name</th>
+                    <th>Category</th>
+                    <th>Purchase Unit</th>
+                    <th>Usage Unit</th>
+                    <th>Conversion</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="items-table-body">
+                  <tr class="loading-row">
+                    <td colspan="8"><div class="loader"></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal-overlay" id="modal-item">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title" id="modal-item-title">Add Item</span>
+          <button class="btn-icon" onclick="closeModal('modal-item')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-item-id-original" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Item ID</label>
+              <input
+                type="text"
+                id="item-id"
+                class="form-control"
+                placeholder="e.g. ING030"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Item Name</label>
+              <input
+                type="text"
+                id="item-name"
+                class="form-control"
+                placeholder="e.g. Olive Oil"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="item-cat" class="form-control" onchange="toggleUnits()">
+              <option>Ingredient</option>
+              <option>Menu</option>
+              <option>Packaging</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div id="unit-fields">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Purchase Unit</label>
+                <select id="purchase-unit" class="form-control">
+                  <option value="kg">kg</option>
+                  <option value="ltr">ltr</option>
+                  <option value="pcs">pcs</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Usage Unit</label>
+                <select id="usage-unit" class="form-control">
+                  <option value="gr">gr</option>
+                  <option value="ml">ml</option>
+                  <option value="pcs">pcs</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Conversion (purchase → usage)</label>
+                <input
+                  type="number"
+                  id="conversion"
+                  class="form-control"
+                  placeholder="e.g. 1000"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="item-active" class="form-control">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-item')">
+            Cancel
+          </button>
+          <button class="btn btn-primary" onclick="saveItem()">
+            Save Item
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      const db = getSupabase();
+      let allItems = [];
+
+      const CAT_COLORS = {
+        Ingredient: "badge-amber",
+        Menu: "badge-blue",
+        Packaging: "badge-muted",
+        Other: "badge-muted",
+      };
+
+      const CAT_PREFIXES = {
+        Ingredient: "ING",
+        Menu: "MENU",
+        Packaging: "PKG",
+        Other: "OTH",
+      };
+
+      function generateItemId(category) {
+        const prefix = CAT_PREFIXES[category] || "ITM";
+        const existingIds = allItems
+          .filter((i) => i.item_id.startsWith(prefix))
+          .map((i) => i.item_id);
+        return generateId(prefix, existingIds);
+      }
+
+      async function loadItems() {
+        const { data, error } = await db
+          .from("items")
+          .select("*")
+          .order("item_id");
+        if (error) return handleSbError(error, "Load items");
+        allItems = data;
+        renderTable(data);
+      }
+
+      function renderTable(data) {
+        const tbody = document.getElementById("items-table-body");
+        if (!data.length) {
+          tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">▤</div><p>No items found</p></div></td></tr>`;
+          return;
+        }
+        tbody.innerHTML = data
+          .map(
+            (r) => `
+    <tr>
+      <td class="mono">${r.item_id}</td>
+      <td><strong>${r.item_name}</strong></td>
+      <td><span class="badge ${CAT_COLORS[r.category] || "badge-muted"}">${r.category}</span></td>
+      <td class="muted">${r.purchase_unit ?? "—"}</td>
+      <td class="muted">${r.usage_unit ?? "—"}</td>
+      <td class="muted">${r.conversion_to_usage ?? "—"}</td>
+      <td><span class="badge ${r.is_active ? "badge-green" : "badge-red"}">${r.is_active ? "Active" : "Inactive"}</span></td>
+      <td>
+        <button class="btn-icon" title="Edit" onclick="editItem('${r.item_id}')">✏</button>
+      </td>
+    </tr>`,
+          )
+          .join("");
+      }
+
+      function applyFilter() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const cat = document.getElementById("filter-cat").value;
+        const active = document.getElementById("filter-active").value;
+        const filtered = allItems.filter((r) => {
+          const matchQ =
+            !q ||
+            r.item_name.toLowerCase().includes(q) ||
+            r.item_id.toLowerCase().includes(q);
+          const matchC = !cat || r.category === cat;
+          const matchA = active === "" || String(r.is_active) === active;
+          return matchQ && matchC && matchA;
+        });
+        renderTable(filtered);
+      }
+
+      function toggleUnits() {
+        const cat = document.getElementById("item-cat").value;
+        document.getElementById("unit-fields").style.display =
+          cat === "Menu" ? "none" : "block";
+        // Auto-generate ID when category changes in Add mode
+        if (!document.getElementById("edit-item-id-original").value) {
+          document.getElementById("item-id").value = generateItemId(cat);
+        }
+      }
+
+      function editItem(id) {
+        const r = allItems.find((i) => i.item_id === id);
+        if (!r) return;
+        document.getElementById("modal-item-title").textContent = "Edit Item";
+        document.getElementById("edit-item-id-original").value = r.item_id;
+        document.getElementById("item-id").value = r.item_id;
+        document.getElementById("item-id").disabled = true;
+        document.getElementById("item-name").value = r.item_name;
+        document.getElementById("item-cat").value = r.category;
+        document.getElementById("purchase-unit").value =
+          r.purchase_unit || "kg";
+        document.getElementById("usage-unit").value = r.usage_unit || "gr";
+        document.getElementById("conversion").value =
+          r.conversion_to_usage || "";
+        document.getElementById("item-active").value = String(r.is_active);
+        toggleUnits();
+        openModal("modal-item");
+      }
+
+      function resetItemForm() {
+        document.getElementById("modal-item-title").textContent = "Add Item";
+        document.getElementById("edit-item-id-original").value = "";
+        document.getElementById("item-id").value = "";
+        document.getElementById("item-id").disabled = false;
+        document.getElementById("item-name").value = "";
+        document.getElementById("item-cat").value = "Ingredient";
+        document.getElementById("purchase-unit").value = "kg";
+        document.getElementById("usage-unit").value = "gr";
+        document.getElementById("conversion").value = "";
+        document.getElementById("item-active").value = "true";
+        // Auto-generate Item ID and make it read-only
+        document.getElementById("item-id").value = generateItemId("Ingredient");
+        document.getElementById("item-id").disabled = true;
+        toggleUnits();
+      }
+
+      document
+        .querySelector("[onclick=\"openModal('modal-item')\"]")
+        .addEventListener("click", resetItemForm);
+
+      async function saveItem() {
+        const cat = document.getElementById("item-cat").value;
+        const generatedId = generateItemId(cat);
+        const payload = {
+          item_id:
+            document.getElementById("item-id").value.trim() || generatedId,
+          item_name: document.getElementById("item-name").value.trim(),
+          category: cat,
+          purchase_unit:
+            cat !== "Menu"
+              ? document.getElementById("purchase-unit").value
+              : null,
+          usage_unit:
+            cat !== "Menu" ? document.getElementById("usage-unit").value : null,
+          conversion_to_usage:
+            cat !== "Menu"
+              ? Number(document.getElementById("conversion").value) || null
+              : null,
+          is_active: document.getElementById("item-active").value === "true",
+        };
+
+        if (!payload.item_id || !payload.item_name) {
+          showToast("Item ID and Name are required", "error");
+          return;
+        }
+
+        const originalId = document.getElementById(
+          "edit-item-id-original",
+        ).value;
+        let error;
+        if (originalId) {
+          ({ error } = await db
+            .from("items")
+            .update(payload)
+            .eq("item_id", originalId));
+        } else {
+          ({ error } = await db.from("items").insert(payload));
+        }
+
+        if (error) {
+          handleSbError(error, "Save item");
+          return;
+        }
+        showToast(originalId ? "Item updated!" : "Item added!");
+        closeModal("modal-item");
+        loadItems();
+      }
+
+      loadItems();
+    </script>
+  </body>
+</html>

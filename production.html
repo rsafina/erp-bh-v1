@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Production — Cafe ERP</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      .yield-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border);
+        overflow: hidden;
+        margin-top: 6px;
+      }
+      .yield-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.4s;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <div class="main">
+        <div class="topbar">
+          <span class="topbar-title">Production</span>
+          <div class="topbar-right">
+            <span class="status-dot"></span><span>Cafe ERP</span>
+          </div>
+        </div>
+        <div class="page-content">
+          <div class="page-header">
+            <div>
+              <h1>Production Log</h1>
+              <p>Batch cooking records with yield tracking</p>
+            </div>
+            <button class="btn btn-primary" id="btn-add">＋ New Batch</button>
+          </div>
+
+          <div class="stat-grid" style="margin-bottom: 24px">
+            <div class="stat-card">
+              <div class="stat-label">Total Batches</div>
+              <div class="stat-value" id="stat-batches">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Output</div>
+              <div class="stat-value" id="stat-output" style="font-size: 18px">
+                —
+              </div>
+              <div class="stat-sub">portions produced</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Avg Yield Rate</div>
+              <div class="stat-value" id="stat-yield">—</div>
+              <div class="stat-sub">actual vs standard</div>
+            </div>
+          </div>
+
+          <div class="filter-bar">
+            <div class="search-input-wrap">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                id="search"
+                class="form-control"
+                placeholder="Search batch no or menu item…"
+                oninput="applyFilter()"
+              />
+            </div>
+            <select
+              id="filter-menu"
+              class="form-control"
+              style="width: 180px"
+              onchange="applyFilter()"
+            >
+              <option value="">All Menu Items</option>
+            </select>
+            <input
+              type="date"
+              id="filter-from"
+              class="form-control"
+              style="width: 150px"
+              onchange="applyFilter()"
+            />
+            <input
+              type="date"
+              id="filter-to"
+              class="form-control"
+              style="width: 150px"
+              onchange="applyFilter()"
+            />
+          </div>
+
+          <div class="card">
+            <div class="table-wrap">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Batch No</th>
+                    <th>Menu Item</th>
+                    <th>Intended Batches</th>
+                    <th>Std Yield (gr)</th>
+                    <th>Actual Yield (gr)</th>
+                    <th>Yield %</th>
+                    <th>Total Portions</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="prod-tbody">
+                  <tr class="loading-row">
+                    <td colspan="9"><div class="loader"></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal-prod">
+      <div class="modal" style="max-width: 580px">
+        <div class="modal-header">
+          <span class="modal-title" id="modal-prod-title"
+            >New Production Batch</span
+          >
+          <button class="btn-icon" onclick="closeModal('modal-prod')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-prod-id" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input type="date" id="prod-date" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Batch No</label>
+              <input
+                type="text"
+                id="prod-batch"
+                class="form-control"
+                placeholder="e.g. BK003"
+              />
+            </div>
+            <div class="form-group" style="grid-column: 1/-1">
+              <label class="form-label">Menu Item</label>
+              <select
+                id="prod-menu"
+                class="form-control"
+                onchange="fillStdYield()"
+              ></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Intended Batches</label>
+              <input
+                type="number"
+                id="prod-intended"
+                class="form-control"
+                min="0"
+                step="0.01"
+                oninput="calcProdTotals()"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Std Yield / Batch (gr)</label>
+              <input
+                type="number"
+                id="prod-std-yield"
+                class="form-control"
+                min="0"
+                oninput="calcProdTotals()"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Actual Yield (gr)</label>
+              <input
+                type="number"
+                id="prod-actual-yield"
+                class="form-control"
+                min="0"
+                oninput="calcProdTotals()"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Output Portions</label>
+              <input
+                type="number"
+                id="prod-portions"
+                class="form-control"
+                min="0"
+                step="0.01"
+              />
+            </div>
+          </div>
+          <div
+            id="yield-preview"
+            style="
+              display: none;
+              background: var(--surface-2);
+              border-radius: 8px;
+              padding: 12px;
+              margin-top: 8px;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                font-size: 12px;
+                color: var(--text-muted);
+              "
+            >
+              <span>Yield Rate</span>
+              <span id="yield-pct-label">—</span>
+            </div>
+            <div class="yield-bar">
+              <div
+                class="yield-fill"
+                id="yield-fill"
+                style="width: 0%; background: var(--green)"
+              ></div>
+            </div>
+          </div>
+          <div class="form-group mt-3">
+            <label class="form-label">Created By</label>
+            <input
+              type="text"
+              id="prod-by"
+              class="form-control"
+              placeholder="Your name (optional)"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-prod')">
+            Cancel
+          </button>
+          <button class="btn btn-primary" onclick="saveProd()">
+            Save Batch
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      const db = getSupabase();
+      let all = [],
+        menuItems = [],
+        standards = {};
+
+      async function load() {
+        const [prod, mi, std] = await Promise.all([
+          db
+            .from("production_transactions")
+            .select("*, items:menu_item_id(item_name)")
+            .order("date", { ascending: false }),
+          db
+            .from("items")
+            .select("*")
+            .eq("category", "Final Menu")
+            .eq("is_active", true),
+          db.from("recipe_standard").select("*"),
+        ]);
+        all = prod.data || [];
+        menuItems = mi.data || [];
+        std.data?.forEach((r) => (standards[r.menu_item_id] = r));
+        renderStats();
+        render(all);
+        populateSelects();
+      }
+
+      function renderStats() {
+        document.getElementById("stat-batches").textContent = all.length;
+        const totalPortions = all.reduce(
+          (s, r) => s + (r.total_output_portion || 0),
+          0,
+        );
+        document.getElementById("stat-output").textContent = fmtNum(
+          Math.round(totalPortions),
+        );
+        if (all.length) {
+          const avgYield =
+            all.reduce((s, r) => {
+              const pct = r.std_yield_gram
+                ? (r.actual_yield_gram / r.std_yield_gram) * 100
+                : 0;
+              return s + pct;
+            }, 0) / all.length;
+          document.getElementById("stat-yield").textContent =
+            avgYield.toFixed(1) + "%";
+        } else {
+          document.getElementById("stat-yield").textContent = "—";
+        }
+      }
+
+      function render(data) {
+        const tbody = document.getElementById("prod-tbody");
+        if (!data.length) {
+          tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">⚙</div><p>No production records</p></div></td></tr>`;
+          return;
+        }
+        tbody.innerHTML = data
+          .map((r) => {
+            const yieldPct = r.std_yield_gram
+              ? (r.actual_yield_gram / r.std_yield_gram) * 100
+              : 0;
+            const yieldColor =
+              yieldPct >= 95
+                ? "var(--green)"
+                : yieldPct >= 80
+                  ? "var(--amber)"
+                  : "var(--red)";
+            return `<tr>
+      <td class="muted">${fmtDate(r.date)}</td>
+      <td class="mono">${r.batch_no}</td>
+      <td><strong>${r.items?.item_name ?? r.menu_item_id}</strong></td>
+      <td class="muted text-right">${fmtNum(r.intended_batch)}</td>
+      <td class="muted text-right">${fmtNum(r.std_yield_gram)}</td>
+      <td class="mono text-right">${fmtNum(r.actual_yield_gram)}</td>
+      <td>
+        <span style="color:${yieldColor};font-family:'Inter',sans-serif;font-size:13px;font-weight:600">${yieldPct.toFixed(1)}%</span>
+        <div class="yield-bar"><div class="yield-fill" style="width:${Math.min(yieldPct, 100)}%;background:${yieldColor}"></div></div>
+      </td>
+      <td class="text-green fw-mono text-right">${fmtNum(r.total_output_portion)}</td>
+      <td style="display:flex;gap:4px">
+        <button class="btn-icon" onclick="editRow(${r.id})">✏</button>
+        <button class="btn-icon" style="color:var(--red)" onclick="deleteRow(${r.id})">✕</button>
+      </td>
+    </tr>`;
+          })
+          .join("");
+      }
+
+      function applyFilter() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const m = document.getElementById("filter-menu").value;
+        const fr = document.getElementById("filter-from").value;
+        const to = document.getElementById("filter-to").value;
+        render(
+          all.filter(
+            (r) =>
+              (!q ||
+                r.batch_no.toLowerCase().includes(q) ||
+                (r.items?.item_name ?? "").toLowerCase().includes(q)) &&
+              (!m || r.menu_item_id === m) &&
+              (!fr || r.date >= fr) &&
+              (!to || r.date <= to),
+          ),
+        );
+      }
+
+      function populateSelects() {
+        const sel = document.getElementById("prod-menu");
+        sel.innerHTML = menuItems
+          .map((m) => `<option value="${m.item_id}">${m.item_name}</option>`)
+          .join("");
+
+        const filterSel = document.getElementById("filter-menu");
+        filterSel.innerHTML =
+          `<option value="">All Menu Items</option>` +
+          menuItems
+            .map((m) => `<option value="${m.item_id}">${m.item_name}</option>`)
+            .join("");
+      }
+
+      function fillStdYield() {
+        const id = document.getElementById("prod-menu").value;
+        const std = standards[id];
+        if (std) {
+          document.getElementById("prod-std-yield").value =
+            std.standard_yield_gram;
+        }
+        calcProdTotals();
+      }
+
+      function calcProdTotals() {
+        const intended =
+          parseFloat(document.getElementById("prod-intended").value) || 0;
+        const stdYield =
+          parseFloat(document.getElementById("prod-std-yield").value) || 0;
+        const actual =
+          parseFloat(document.getElementById("prod-actual-yield").value) || 0;
+        const preview = document.getElementById("yield-preview");
+
+        if (actual && stdYield) {
+          const pct = (actual / (stdYield * (intended || 1))) * 100;
+          const color =
+            pct >= 95
+              ? "var(--green)"
+              : pct >= 80
+                ? "var(--amber)"
+                : "var(--red)";
+          document.getElementById("yield-pct-label").textContent =
+            pct.toFixed(1) + "%";
+          document.getElementById("yield-pct-label").style.color = color;
+          document.getElementById("yield-fill").style.width =
+            Math.min(pct, 100) + "%";
+          document.getElementById("yield-fill").style.background = color;
+          preview.style.display = "block";
+
+          // Auto-fill portions
+          const menuId = document.getElementById("prod-menu").value;
+          const std = standards[menuId];
+          if (std?.standard_portion_gram) {
+            const portions = actual / std.standard_portion_gram;
+            document.getElementById("prod-portions").value =
+              portions.toFixed(2);
+          }
+        } else {
+          preview.style.display = "none";
+        }
+      }
+
+      function resetForm() {
+        document.getElementById("modal-prod-title").textContent =
+          "New Production Batch";
+        document.getElementById("edit-prod-id").value = "";
+        document.getElementById("prod-date").value = new Date()
+          .toISOString()
+          .split("T")[0];
+        document.getElementById("prod-batch").value =
+          "BK" + String(all.length + 1).padStart(3, "0");
+        document.getElementById("prod-intended").value = "";
+        document.getElementById("prod-actual-yield").value = "";
+        document.getElementById("prod-portions").value = "";
+        document.getElementById("prod-by").value = "";
+        document.getElementById("yield-preview").style.display = "none";
+        if (menuItems.length) {
+          document.getElementById("prod-menu").value = menuItems[0].item_id;
+          fillStdYield();
+        }
+      }
+
+      function editRow(id) {
+        const r = all.find((x) => x.id === id);
+        if (!r) return;
+        document.getElementById("modal-prod-title").textContent = "Edit Batch";
+        document.getElementById("edit-prod-id").value = r.id;
+        document.getElementById("prod-date").value = r.date;
+        document.getElementById("prod-batch").value = r.batch_no;
+        document.getElementById("prod-menu").value = r.menu_item_id;
+        document.getElementById("prod-intended").value = r.intended_batch;
+        document.getElementById("prod-std-yield").value = r.std_yield_gram;
+        document.getElementById("prod-actual-yield").value =
+          r.actual_yield_gram;
+        document.getElementById("prod-portions").value = r.total_output_portion;
+        document.getElementById("prod-by").value = r.created_by ?? "";
+        calcProdTotals();
+        openModal("modal-prod");
+      }
+
+      async function deleteRow(id) {
+        if (!confirm("Delete this batch record?")) return;
+        const { error } = await db
+          .from("production_transactions")
+          .delete()
+          .eq("id", id);
+        if (error) {
+          handleSbError(error, "Delete");
+          return;
+        }
+        showToast("Batch deleted");
+        load();
+      }
+
+      async function saveProd() {
+        const payload = {
+          date: document.getElementById("prod-date").value,
+          batch_no: document.getElementById("prod-batch").value.trim(),
+          menu_item_id: document.getElementById("prod-menu").value,
+          intended_batch: Number(
+            document.getElementById("prod-intended").value,
+          ),
+          actual_yield_gram: Number(
+            document.getElementById("prod-actual-yield").value,
+          ),
+          std_yield_gram: Number(
+            document.getElementById("prod-std-yield").value,
+          ),
+          total_output_portion: Number(
+            document.getElementById("prod-portions").value,
+          ),
+          created_by: document.getElementById("prod-by").value.trim() || null,
+        };
+        if (!payload.date || !payload.batch_no || !payload.menu_item_id) {
+          showToast("Date, Batch No and Menu Item are required", "error");
+          return;
+        }
+        const editId = document.getElementById("edit-prod-id").value;
+        let error;
+        if (editId) {
+          ({ error } = await db
+            .from("production_transactions")
+            .update(payload)
+            .eq("id", editId));
+        } else {
+          ({ error } = await db
+            .from("production_transactions")
+            .insert(payload));
+        }
+        if (error) {
+          handleSbError(error, "Save batch");
+          return;
+        }
+
+        // Write to stock ledger: deduct ingredients, add menu item output || Ledger deduction (ingredients OUT) + output credit (menu item IN) are handled automatically by the production_after_save trigger in Supabase. eversal on edit is also handled by the same trigger — no app-side logic needed.
+        // if (!editId) {
+        //   const ings = await db.from('recipe_ingredients').select('*').eq('menu_item_id', payload.menu_item_id);
+        //   const actualBatch = payload.std_yield_gram ? payload.actual_yield_gram / payload.std_yield_gram : payload.intended_batch;
+        //   const ledgerRows = (ings.data || []).map(r => ({
+        //     date: payload.date,
+        //     item_id: r.ingredient_id,
+        //     in_qty: 0,
+        //     out_qty: r.qty_usage_unit * actualBatch,
+        //     source: 'PROD_USE',
+        //     ref: payload.batch_no,
+        //   }));
+        //   ledgerRows.push({
+        //     date: payload.date,
+        //     item_id: payload.menu_item_id,
+        //     in_qty: payload.actual_yield_gram,
+        //     out_qty: 0,
+        //     source: 'PROD_OUT',
+        //     ref: payload.batch_no,
+        //   });
+        //   if (ledgerRows.length) await db.from('stock_ledger').insert(ledgerRows);
+        // }
+
+        showToast(editId ? "Batch updated!" : "Batch saved!");
+        closeModal("modal-prod");
+        load();
+      }
+
+      document.getElementById("btn-add").addEventListener("click", () => {
+        resetForm();
+        openModal("modal-prod");
+      });
+      load();
+    </script>
+  </body>
+</html>

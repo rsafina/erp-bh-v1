@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Opening Stock — Cafe ERP</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">Opening Stock</span>
+      <div class="topbar-right"><span class="status-dot"></span><span>Cafe ERP</span></div>
+    </div>
+    <div class="page-content">
+      <div class="page-header">
+        <div>
+          <h1>Opening Stock</h1>
+          <p>Initial inventory balances at period start</p>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-secondary" id="btn-bulk">⬆ Bulk Entry</button>
+          <button class="btn btn-primary" id="btn-add">＋ Add Entry</button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search" class="form-control" placeholder="Search item…" oninput="applyFilter()" />
+        </div>
+        <input type="date" id="filter-date" class="form-control" style="width:160px" onchange="applyFilter()" />
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="erp-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Item ID</th>
+                <th>Item Name</th>
+                <th>Qty (Usage Unit)</th>
+                <th>Unit</th>
+                <th>Recorded</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="os-tbody">
+              <tr class="loading-row"><td colspan="7"><div class="loader"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Single entry modal -->
+<div class="modal-overlay" id="modal-os">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-os-title">Add Opening Stock</span>
+      <button class="btn-icon" onclick="closeModal('modal-os')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-os-id" />
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input type="date" id="os-date" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Item</label>
+        <select id="os-item" class="form-control" onchange="showUnit()"></select>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Quantity</label>
+          <input type="number" id="os-qty" class="form-control" min="0" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unit</label>
+          <input type="text" id="os-unit" class="form-control" disabled placeholder="auto" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-os')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOs()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk entry modal -->
+<div class="modal-overlay" id="modal-bulk">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <span class="modal-title">Bulk Opening Stock Entry</span>
+      <button class="btn-icon" onclick="closeModal('modal-bulk')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Date (applies to all)</label>
+        <input type="date" id="bulk-date" class="form-control" style="max-width:200px" />
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+        Enter quantities for each ingredient. Leave blank to skip.
+      </div>
+      <div id="bulk-rows" style="max-height:380px;overflow-y:auto">
+        <div class="loader" style="display:block;margin:20px auto"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-bulk')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveBulk()">Save All</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/app.js"></script>
+<script>
+const db = getSupabase();
+let all = [], items = [];
+
+async function load() {
+  const [os, itm] = await Promise.all([
+    db.from('opening_stock').select('*, items(item_name, usage_unit)').order('date', { ascending: false }),
+    db.from('items').select('*').eq('is_active', true).neq('category', 'Menu').order('item_name'),
+  ]);
+  all = os.data || [];
+  items = itm.data || [];
+  render(all);
+  populateItemSelect();
+}
+
+function render(data) {
+  const tbody = document.getElementById('os-tbody');
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">◫</div><p>No opening stock entries</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map(r => `
+    <tr>
+      <td class="muted">${fmtDate(r.date)}</td>
+      <td class="mono">${r.item_id}</td>
+      <td><strong>${r.items?.item_name ?? r.item_id}</strong></td>
+      <td class="mono text-amber">${fmtNum(r.qty)}</td>
+      <td class="muted">${r.items?.usage_unit ?? '—'}</td>
+      <td class="muted">${fmtDate(r.created_at)}</td>
+      <td style="display:flex;gap:4px">
+        <button class="btn-icon" onclick="editRow(${r.id})">✏</button>
+        <button class="btn-icon" style="color:var(--red)" onclick="deleteRow(${r.id})">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+function applyFilter() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const d = document.getElementById('filter-date').value;
+  render(all.filter(r =>
+    (!q || (r.items?.item_name ?? r.item_id).toLowerCase().includes(q)) &&
+    (!d || r.date.startsWith(d))
+  ));
+}
+
+function populateItemSelect() {
+  document.getElementById('os-item').innerHTML =
+    items.map(i => `<option value="${i.item_id}" data-unit="${i.usage_unit ?? ''}">${i.item_name}</option>`).join('');
+  showUnit();
+}
+
+function showUnit() {
+  const sel = document.getElementById('os-item');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('os-unit').value = opt?.dataset.unit ?? '';
+}
+
+function resetForm() {
+  document.getElementById('modal-os-title').textContent = 'Add Opening Stock';
+  document.getElementById('edit-os-id').value = '';
+  document.getElementById('os-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('os-qty').value = '';
+  if (items.length) { document.getElementById('os-item').value = items[0].item_id; showUnit(); }
+}
+
+function editRow(id) {
+  const r = all.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('modal-os-title').textContent = 'Edit Opening Stock';
+  document.getElementById('edit-os-id').value = r.id;
+  document.getElementById('os-date').value = r.date;
+  document.getElementById('os-item').value = r.item_id;
+  document.getElementById('os-qty').value = r.qty;
+  showUnit();
+  openModal('modal-os');
+}
+
+async function deleteRow(id) {
+  if (!confirm('Delete this opening stock entry?')) return;
+  const { error } = await db.from('opening_stock').delete().eq('id', id);
+  if (error) { handleSbError(error, 'Delete'); return; }
+  showToast('Entry deleted');
+  load();
+}
+
+async function saveOs() {
+  const itemId = document.getElementById('os-item').value;
+  const payload = {
+    date:    document.getElementById('os-date').value,
+    item_id: itemId,
+    qty:     Number(document.getElementById('os-qty').value),
+  };
+  if (!payload.date || !payload.item_id || payload.qty === '') {
+    showToast('All fields required', 'error'); return;
+  }
+  const editId = document.getElementById('edit-os-id').value;
+  let error;
+  if (editId) {
+    ({ error } = await db.from('opening_stock').update(payload).eq('id', editId));
+  } else {
+    ({ error } = await db.from('opening_stock').insert(payload));
+    if (!error) {
+      // Write ledger
+      await db.from('stock_ledger').insert({
+        date: payload.date, item_id: payload.item_id,
+        in_qty: payload.qty, out_qty: 0, source: 'OPENING',
+      });
+    }
+  }
+  if (error) { handleSbError(error, 'Save'); return; }
+  showToast(editId ? 'Entry updated!' : 'Opening stock added!');
+  closeModal('modal-os');
+  load();
+}
+
+// Bulk modal
+async function openBulk() {
+  document.getElementById('bulk-date').value = new Date().toISOString().split('T')[0];
+  const container = document.getElementById('bulk-rows');
+  container.innerHTML = items.map(i => `
+    <div style="display:grid;grid-template-columns:1fr 120px 80px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:600;color:var(--text);font-size:13px">${i.item_name}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${i.item_id}</div>
+      </div>
+      <input type="number" min="0" step="0.01" placeholder="Qty" class="form-control"
+        id="bulk-qty-${i.item_id}" style="padding:7px 10px" />
+      <span style="font-size:12px;color:var(--text-muted)">${i.usage_unit ?? ''}</span>
+    </div>`).join('');
+  openModal('modal-bulk');
+}
+
+async function saveBulk() {
+  const date = document.getElementById('bulk-date').value;
+  if (!date) { showToast('Select a date', 'error'); return; }
+  const rows = [], ledger = [];
+  items.forEach(i => {
+    const val = document.getElementById(`bulk-qty-${i.item_id}`)?.value;
+    if (val !== '' && val !== null && !isNaN(val) && Number(val) >= 0) {
+      rows.push({ date, item_id: i.item_id, qty: Number(val) });
+      ledger.push({ date, item_id: i.item_id, in_qty: Number(val), out_qty: 0, source: 'OPENING' });
+    }
+  });
+  if (!rows.length) { showToast('No quantities entered', 'error'); return; }
+  const { error } = await db.from('opening_stock').insert(rows);
+  if (error) { handleSbError(error, 'Bulk save'); return; }
+  await db.from('stock_ledger').insert(ledger);
+  showToast(`${rows.length} items saved!`);
+  closeModal('modal-bulk');
+  load();
+}
+
+document.getElementById('btn-add').addEventListener('click', () => { resetForm(); openModal('modal-os'); });
+document.getElementById('btn-bulk').addEventListener('click', openBulk);
+load();
+</script>
+</body>
+</html>

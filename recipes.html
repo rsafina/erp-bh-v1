@@ -92,8 +92,8 @@
               <h1>Recipe Manager</h1>
               <p>Standard yields and ingredient compositions per menu item</p>
             </div>
-            <button class="btn btn-primary" id="btn-add-ing">
-              ＋ Add Ingredient
+            <button class="btn btn-primary" id="btn-add-menu">
+              ＋ Add Menu
             </button>
           </div>
 
@@ -127,6 +127,66 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Menu Modal -->
+    <div class="modal-overlay" id="modal-menu">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title" id="modal-menu-title">Add Menu Item</span>
+          <button class="btn-icon" onclick="closeModal('modal-menu')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-menu-id-original" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Menu ID</label>
+              <input
+                type="text"
+                id="menu-id"
+                class="form-control"
+                placeholder="e.g. MENU001"
+                disabled
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Menu Name</label>
+              <input
+                type="text"
+                id="menu-name"
+                class="form-control"
+                placeholder="e.g. Cappuccino"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Selling Price (Rp)</label>
+            <input
+              type="number"
+              id="menu-selling-price"
+              class="form-control"
+              placeholder="e.g. 35000"
+              min="0"
+              step="100"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="menu-active" class="form-control">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-menu')">
+            Cancel
+          </button>
+          <button class="btn btn-primary" onclick="saveMenu()">
+            Save Menu
+          </button>
         </div>
       </div>
     </div>
@@ -243,14 +303,18 @@
         const [mi, ing, std, ri, cs] = await Promise.all([
           db
             .from("items")
-            .select("item_id, item_name, effective_cost, cost_per_usage_unit")
-            .eq("category", "Raw Material")
+            .select(
+              "item_id, item_name, effective_cost, cost_per_usage_unit, selling_price",
+            )
+            .eq("category", "Menu")
             .eq("is_active", true)
             .order("item_name"),
           db
             .from("items")
-            .select("item_id, item_name, effective_cost, cost_per_usage_unit")
-            .eq("category", "Raw Material")
+            .select(
+              "item_id, item_name, effective_cost, cost_per_usage_unit, category",
+            )
+            .in("category", ["Ingredient", "Prep"])
             .eq("is_active", true)
             .order("item_name"),
           db.from("recipe_standard").select("*"),
@@ -259,6 +323,7 @@
             .select(
               "*, ingredients:ingredient_id(item_name, usage_unit, effective_cost, cost_per_usage_unit)",
             ),
+          db.from("recipe_cost_summary").select("*"),
         ]);
         menuItems = mi.data || [];
         ingredients = ing.data || [];
@@ -267,8 +332,8 @@
           if (!recipeIngredients[r.menu_item_id])
             recipeIngredients[r.menu_item_id] = [];
           recipeIngredients[r.menu_item_id].push(r);
-          cs.data?.forEach((r) => (costSummary[r.menu_item_id] = r));
         });
+        cs.data?.forEach((r) => (costSummary[r.menu_item_id] = r));
         renderMenuList();
         populateSelects();
       }
@@ -447,9 +512,30 @@
           .map((m) => `<option value="${m.item_id}">${m.item_name}</option>`)
           .join("");
         const ingSel = document.getElementById("ing-ingredient");
-        ingSel.innerHTML = ingredients
-          .map((i) => `<option value="${i.item_id}">${i.item_name}</option>`)
-          .join("");
+        const rawIngs = ingredients.filter((i) => i.category === "Ingredient");
+        const prepIngs = ingredients.filter((i) => i.category === "Prep");
+        let ingHtml = "";
+        if (rawIngs.length) {
+          ingHtml +=
+            `<optgroup label="Ingredient">` +
+            rawIngs
+              .map(
+                (i) => `<option value="${i.item_id}">${i.item_name}</option>`,
+              )
+              .join("") +
+            `</optgroup>`;
+        }
+        if (prepIngs.length) {
+          ingHtml +=
+            `<optgroup label="Prep">` +
+            prepIngs
+              .map(
+                (i) => `<option value="${i.item_id}">${i.item_name}</option>`,
+              )
+              .join("") +
+            `</optgroup>`;
+        }
+        ingSel.innerHTML = ingHtml;
       }
 
       function openIngModal(menuId) {
@@ -532,9 +618,68 @@
         renderDetail();
       }
 
+      function generateMenuId() {
+        const prefix = "MENU";
+        const existingIds = menuItems
+          .filter((i) => i.item_id.startsWith(prefix))
+          .map((i) => i.item_id);
+        return generateId(prefix, existingIds);
+      }
+
+      function openMenuModal() {
+        document.getElementById("modal-menu-title").textContent =
+          "Add Menu Item";
+        document.getElementById("edit-menu-id-original").value = "";
+        document.getElementById("menu-id").value = generateMenuId();
+        document.getElementById("menu-name").value = "";
+        document.getElementById("menu-selling-price").value = "";
+        document.getElementById("menu-active").value = "true";
+        openModal("modal-menu");
+      }
+
+      async function saveMenu() {
+        const name = document.getElementById("menu-name").value.trim();
+        if (!name) {
+          showToast("Menu name is required", "error");
+          return;
+        }
+        const originalId = document.getElementById(
+          "edit-menu-id-original",
+        ).value;
+        const payload = {
+          item_id: document.getElementById("menu-id").value.trim(),
+          item_name: name,
+          category: "Menu",
+          selling_price:
+            Number(document.getElementById("menu-selling-price").value) || null,
+          is_active: document.getElementById("menu-active").value === "true",
+        };
+        let error;
+        if (originalId) {
+          ({ error } = await db
+            .from("items")
+            .update(payload)
+            .eq("item_id", originalId));
+        } else {
+          ({ error } = await db.from("items").insert(payload));
+        }
+        if (error) {
+          handleSbError(error, "Save menu");
+          return;
+        }
+        showToast(originalId ? "Menu item updated!" : "Menu item added!");
+        closeModal("modal-menu");
+        // Reload and re-render
+        menuItems = [];
+        recipeIngredients = {};
+        standards = {};
+        costSummary = {};
+        await load();
+      }
+
       document
-        .getElementById("btn-add-ing")
-        .addEventListener("click", () => openIngModal(selectedMenu));
+        .getElementById("btn-add-menu")
+        .addEventListener("click", openMenuModal);
       load();
     </script>
   </body>

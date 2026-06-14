@@ -46,6 +46,7 @@
             >
               <option value="">All Categories</option>
               <option>Ingredient</option>
+              <option>Prep</option>
               <option>Menu</option>
               <option>Packaging</option>
               <option>Other</option>
@@ -122,6 +123,7 @@
             <label class="form-label">Category</label>
             <select id="item-cat" class="form-control" onchange="toggleUnits()">
               <option>Ingredient</option>
+              <option>Prep</option>
               <option>Menu</option>
               <option>Packaging</option>
               <option>Other</option>
@@ -184,6 +186,7 @@
 
       const CAT_COLORS = {
         Ingredient: "badge-amber",
+        Prep: "badge-green",
         Menu: "badge-blue",
         Packaging: "badge-muted",
         Other: "badge-muted",
@@ -191,6 +194,7 @@
 
       const CAT_PREFIXES = {
         Ingredient: "ING",
+        Prep: "PREP",
         Menu: "MENU",
         Packaging: "PKG",
         Other: "OTH",

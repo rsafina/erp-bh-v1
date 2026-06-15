@@ -6,23 +6,27 @@
     <title>Recipes — Cafe ERP</title>
     <link rel="stylesheet" href="css/style.css" />
     <style>
-      .recipe-grid {
+      .recipe-layout {
         display: grid;
-        grid-template-columns: 320px 1fr;
+        grid-template-columns: 280px 1fr;
         gap: 20px;
         align-items: start;
       }
+      /* ── Left panel ── */
       .menu-list-item {
-        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
         border-radius: 8px;
         cursor: pointer;
-        border: 1px solid var(--border);
-        margin-bottom: 8px;
+        border: 1px solid transparent;
+        margin-bottom: 6px;
         transition: all 0.15s;
       }
       .menu-list-item:hover {
-        border-color: var(--amber-dim);
-        background: var(--amber-glow);
+        border-color: var(--border);
+        background: var(--surface-2);
       }
       .menu-list-item.selected {
         border-color: var(--amber);
@@ -30,50 +34,133 @@
       }
       .menu-list-item .menu-name {
         font-weight: 600;
+        font-size: 13px;
         color: var(--text);
       }
       .menu-list-item .menu-meta {
-        font-size: 12px;
+        font-size: 11px;
         color: var(--text-muted);
-        margin-top: 3px;
+        margin-top: 2px;
       }
-      .std-grid {
+      .menu-list-item .menu-actions {
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .menu-list-item:hover .menu-actions {
+        opacity: 1;
+      }
+
+      /* ── Stats bar ── */
+      .stats-bar {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: repeat(4, 1fr);
         gap: 12px;
         margin-bottom: 20px;
       }
-      .std-item {
+      .stat-card {
         background: var(--surface-2);
         border-radius: 8px;
-        padding: 14px;
+        padding: 14px 16px;
       }
-      .std-item .label {
+      .stat-card .stat-label {
         font-size: 11px;
         color: var(--text-muted);
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        font-family: "Inter", sans-serif;
       }
-      .std-item .value {
+      .stat-card .stat-value {
         font-family: "Playfair Display", serif;
         font-size: 20px;
         font-weight: 700;
         color: var(--amber);
         margin-top: 4px;
       }
-      .std-item .unit {
+      .stat-card .stat-sub {
         font-size: 11px;
         color: var(--text-dim);
       }
-      .ing-row td {
-        padding: 8px 12px !important;
+
+      /* ── Ingredient rows ── */
+      .ing-table {
+        width: 100%;
+        border-collapse: collapse;
       }
-      .empty-recipe {
-        padding: 40px;
+      .ing-table th {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        padding: 6px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+      .ing-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        vertical-align: middle;
+      }
+      .ing-table tr:last-child td {
+        border-bottom: none;
+      }
+      .ing-table tr.editing td {
+        background: var(--amber-glow);
+      }
+
+      /* ── Inline add row ── */
+      .add-row td {
+        padding: 6px 10px;
+        border-top: 2px dashed var(--border);
+      }
+      .inline-input {
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 5px 8px;
+        font-size: 13px;
+        background: #fff;
+        color: var(--text);
+        width: 100%;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .inline-input:focus {
+        border-color: var(--amber);
+      }
+      select.inline-input {
+        cursor: pointer;
+      }
+
+      .badge-prep {
+        background: rgba(43, 147, 72, 0.12);
+        color: var(--green);
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+      .badge-ing {
+        background: rgba(200, 150, 43, 0.12);
+        color: var(--amber-dim);
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+      .empty-state {
         text-align: center;
+        padding: 40px;
         color: var(--text-muted);
         font-size: 13px;
+      }
+      .section-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin: 20px 0 10px;
+        font-weight: 600;
       }
     </style>
   </head>
@@ -97,7 +184,7 @@
             </button>
           </div>
 
-          <div class="recipe-grid">
+          <div class="recipe-layout">
             <!-- Left: menu list -->
             <div>
               <div class="card">
@@ -116,7 +203,7 @@
             <!-- Right: recipe detail -->
             <div id="recipe-detail">
               <div class="card">
-                <div class="card-body empty-recipe">
+                <div class="card-body empty-state">
                   <div
                     style="font-size: 36px; opacity: 0.3; margin-bottom: 12px"
                   >
@@ -131,7 +218,7 @@
       </div>
     </div>
 
-    <!-- Add Menu Modal -->
+    <!-- Add / Edit Menu Modal -->
     <div class="modal-overlay" id="modal-menu">
       <div class="modal">
         <div class="modal-header">
@@ -143,13 +230,7 @@
           <div class="form-grid">
             <div class="form-group">
               <label class="form-label">Menu ID</label>
-              <input
-                type="text"
-                id="menu-id"
-                class="form-control"
-                placeholder="e.g. MENU001"
-                disabled
-              />
+              <input type="text" id="menu-id" class="form-control" disabled />
             </div>
             <div class="form-group">
               <label class="form-label">Menu Name</label>
@@ -191,59 +272,7 @@
       </div>
     </div>
 
-    <!-- Add Ingredient Modal -->
-    <div class="modal-overlay" id="modal-ing">
-      <div class="modal">
-        <div class="modal-header">
-          <span class="modal-title" id="modal-ing-title"
-            >Add Ingredient to Recipe</span
-          >
-          <button class="btn-icon" onclick="closeModal('modal-ing')">✕</button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" id="edit-ing-id" />
-          <div class="form-group">
-            <label class="form-label">Menu Item</label>
-            <select id="ing-menu" class="form-control"></select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Ingredient</label>
-            <select id="ing-ingredient" class="form-control"></select>
-          </div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label class="form-label">Quantity</label>
-              <input
-                type="number"
-                id="ing-qty"
-                class="form-control"
-                placeholder="e.g. 500"
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Usage Unit</label>
-              <select id="ing-unit" class="form-control">
-                <option value="gr">gr</option>
-                <option value="ml">ml</option>
-                <option value="pcs">pcs</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeModal('modal-ing')">
-            Cancel
-          </button>
-          <button class="btn btn-primary" onclick="saveIngredient()">
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit Standard Modal -->
+    <!-- Edit Recipe Standard Modal -->
     <div class="modal-overlay" id="modal-std">
       <div class="modal">
         <div class="modal-header">
@@ -299,12 +328,13 @@
         costSummary = {};
       let selectedMenu = null;
 
+      // ── Data loading ────────────────────────────────
       async function load() {
         const [mi, ing, std, ri, cs] = await Promise.all([
           db
             .from("items")
             .select(
-              "item_id, item_name, effective_cost, cost_per_usage_unit, selling_price",
+              "item_id,item_name,effective_cost,cost_per_usage_unit,selling_price",
             )
             .eq("category", "Menu")
             .eq("is_active", true)
@@ -312,7 +342,7 @@
           db
             .from("items")
             .select(
-              "item_id, item_name, effective_cost, cost_per_usage_unit, category",
+              "item_id,item_name,effective_cost,cost_per_usage_unit,category",
             )
             .in("category", ["Ingredient", "Prep"])
             .eq("is_active", true)
@@ -321,7 +351,7 @@
           db
             .from("recipe_ingredients")
             .select(
-              "*, ingredients:ingredient_id(item_name, usage_unit, effective_cost, cost_per_usage_unit)",
+              "*, ingredients:ingredient_id(item_name,usage_unit,effective_cost,cost_per_usage_unit,category)",
             ),
           db.from("recipe_cost_summary").select("*"),
         ]);
@@ -335,23 +365,41 @@
         });
         cs.data?.forEach((r) => (costSummary[r.menu_item_id] = r));
         renderMenuList();
-        populateSelects();
+        if (selectedMenu) renderDetail();
       }
 
+      async function reloadIngredients(menuId) {
+        const { data } = await db
+          .from("recipe_ingredients")
+          .select(
+            "*, ingredients:ingredient_id(item_name,usage_unit,effective_cost,cost_per_usage_unit,category)",
+          )
+          .eq("menu_item_id", menuId);
+        recipeIngredients[menuId] = data || [];
+        renderMenuList();
+        if (selectedMenu === menuId) renderDetail();
+      }
+
+      // ── Left panel ──────────────────────────────────
       function renderMenuList() {
         const el = document.getElementById("menu-list");
         if (!menuItems.length) {
           el.innerHTML =
-            '<p style="color:var(--text-muted);font-size:13px">No menu items found</p>';
+            '<p style="color:var(--text-muted);font-size:13px">No menu items yet</p>';
           return;
         }
         el.innerHTML = menuItems
           .map(
             (m) => `
-    <div class="menu-list-item ${selectedMenu === m.item_id ? "selected" : ""}" onclick="selectMenu('${m.item_id}')">
-      <div class="menu-name">${m.item_name}</div>
-      <div class="menu-meta">${m.item_id} · ${(recipeIngredients[m.item_id] || []).length} ingredients</div>
-    </div>`,
+          <div class="menu-list-item ${selectedMenu === m.item_id ? "selected" : ""}" onclick="selectMenu('${m.item_id}')">
+            <div>
+              <div class="menu-name">${m.item_name}</div>
+              <div class="menu-meta">${(recipeIngredients[m.item_id] || []).length} ingredients</div>
+            </div>
+            <div class="menu-actions">
+              <button class="btn-icon" title="Edit menu" onclick="event.stopPropagation();editMenu('${m.item_id}')">✏</button>
+            </div>
+          </div>`,
           )
           .join("");
       }
@@ -362,109 +410,335 @@
         renderDetail();
       }
 
+      // ── Right panel ─────────────────────────────────
       function renderDetail() {
         const m = menuItems.find((x) => x.item_id === selectedMenu);
         if (!m) return;
         const std = standards[selectedMenu];
         const ings = recipeIngredients[selectedMenu] || [];
+        const cs = costSummary[selectedMenu];
 
         document.getElementById("recipe-detail").innerHTML = `
-    <div class="card">
-      <div class="card-header">
-        <div>
-          <span class="card-title">${m.item_name}</span>
-          <span class="badge badge-amber" style="margin-left:8px">${m.item_id}</span>
-        </div>
-        <button class="btn btn-secondary btn-sm" onclick="openStdModal('${m.item_id}','${m.item_name}')">✏ Edit Standard</button>
-      </div>
-      <div class="card-body">
-        ${
-          std
-            ? `
-        <div class="std-grid">
-          <div class="std-item">
-            <div class="label">Std Yield</div>
-            <div class="value">${fmtNum(std.standard_yield_gram)}</div>
-            <div class="unit">grams / batch</div>
-          </div>
-          <div class="std-item">
-            <div class="label">Std Portion</div>
-            <div class="value">${fmtNum(std.standard_portion_gram)}</div>
-            <div class="unit">grams / portion</div>
-          </div>
-          <div class="std-item">
-            <div class="label">Portions / Batch</div>
-            <div class="value">${fmtNum(std.std_portion_per_batch)}</div>
-            <div class="unit">portions</div>
-          </div>
-          <div style="background:var(--surface-2);border-radius:8px;padding:14px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
-          <div class="std-item">
-            <div class="label">Batch Cost</div>
-            <div class="value" style="font-size:15px">${costSummary[m.item_id] ? fmtCurrency(costSummary[m.item_id].batch_cost) : "—"}</div>
-            <div class="unit">total ingredients</div>
-          </div>
-          <div class="std-item">
-            <div class="label">Cost / Portion</div>
-            <div class="value" style="font-size:15px">${costSummary[m.item_id] ? fmtCurrency(costSummary[m.item_id].cost_per_portion) : "—"}</div>
-            <div class="unit">per portion</div>
-          </div>
-          <div class="std-item">
-            <div class="label">Selling Price</div>
-            <div class="value" style="font-size:15px">${m.selling_price ? fmtCurrency(m.selling_price) : "—"}</div>
-            <div class="unit">per portion</div>
-          </div>
-          <div class="std-item">
-            <div class="label">Actual Margin</div>
-            <div class="value" style="font-size:15px;color:${costSummary[m.item_id]?.actual_margin_pct > 0 ? "var(--green)" : "var(--red)"}">${costSummary[m.item_id]?.actual_margin_pct != null ? (costSummary[m.item_id].actual_margin_pct * 100).toFixed(1) + "%" : "—"}</div>
-            <div class="unit">gross margin</div>
-          </div>
-        </div>
-        </div>`
-            : `<div style="background:var(--surface-2);border-radius:8px;padding:14px;margin-bottom:20px;color:var(--text-muted);font-size:13px">⚠ No recipe standard set. <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="openStdModal('${m.item_id}','${m.item_name}')">Add Standard</button></div>`
-        }
+          <div class="card">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span class="card-title">${m.item_name}</span>
+                <span class="badge badge-amber">${m.item_id}</span>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="openStdModal('${m.item_id}','${m.item_name.replace(/'/g, "\\'")}')">✏ Edit Standard</button>
+            </div>
+            <div class="card-body">
 
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div class="card-title">Ingredients</div>
-          <button class="btn btn-secondary btn-sm" onclick="openIngModal('${m.item_id}')">＋ Add Ingredient</button>
-        </div>
+              <!-- Stats -->
+              <div class="stats-bar">
+                <div class="stat-card">
+                  <div class="stat-label">Std Yield</div>
+                  <div class="stat-value">${std ? fmtNum(std.standard_yield_gram) : "—"}</div>
+                  <div class="stat-sub">gr / batch</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Std Portion</div>
+                  <div class="stat-value">${std ? fmtNum(std.standard_portion_gram) : "—"}</div>
+                  <div class="stat-sub">gr / portion</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Portions / Batch</div>
+                  <div class="stat-value">${std ? fmtNum(std.std_portion_per_batch) : "—"}</div>
+                  <div class="stat-sub">portions</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Selling Price</div>
+                  <div class="stat-value" style="font-size:16px">${m.selling_price ? fmtCurrency(m.selling_price) : "—"}</div>
+                  <div class="stat-sub">per portion</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Batch Cost</div>
+                  <div class="stat-value" style="font-size:16px">${cs ? fmtCurrency(cs.batch_cost) : "—"}</div>
+                  <div class="stat-sub">total ingredients</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Cost / Portion</div>
+                  <div class="stat-value" style="font-size:16px">${cs ? fmtCurrency(cs.cost_per_portion) : "—"}</div>
+                  <div class="stat-sub">per portion</div>
+                </div>
+                <div class="stat-card" style="grid-column:span 2">
+                  <div class="stat-label">Gross Margin</div>
+                  <div class="stat-value" style="font-size:16px;color:${cs?.actual_margin_pct > 0 ? "var(--green)" : "var(--red)"}">
+                    ${cs?.actual_margin_pct != null ? (cs.actual_margin_pct * 100).toFixed(1) + "%" : "—"}
+                  </div>
+                  <div class="stat-sub">actual margin</div>
+                </div>
+              </div>
 
-        ${
-          ings.length
-            ? `
-        <table class="erp-table">
-          <thead><tr><th>#</th><th>Ingredient</th><th>Quantity</th><th>Unit</th><th>Cost/Unit</th><th>Line Cost</th><th></th></tr></thead>
-          <tbody>
-            ${ings
-              .map((r, i) => {
-                const unitCost =
-                  r.ingredients?.effective_cost ??
-                  r.ingredients?.cost_per_usage_unit ??
-                  null;
-                const lineCost =
-                  unitCost != null ? r.qty_usage_unit * unitCost : null;
-                return `
-            <tr class="ing-row">
-              <td class="muted">${i + 1}</td>
-              <td><strong>${r.ingredients?.item_name ?? r.ingredient_id}</strong></td>
-              <td class="mono">${fmtNum(r.qty_usage_unit)}</td>
-              <td class="muted">${r.usage_unit}</td>
-              <td class="mono" style="color:var(--text-muted)">${unitCost != null ? fmtCurrency(unitCost) : "—"}</td>
-              <td class="mono text-amber">${lineCost != null ? fmtCurrency(lineCost) : "—"}</td>
-              <td>
-                <button class="btn-icon" title="Edit" onclick="editIng(${r.id},'${r.menu_item_id}','${r.ingredient_id}',${r.qty_usage_unit},'${r.usage_unit}')">✏</button>
-                <button class="btn-icon" title="Delete" style="margin-left:4px;color:var(--red)" onclick="deleteIng(${r.id})">✕</button>
-              </td>
-            </tr>`;
-              })
-              .join("")}
-          </tbody>
-        </table>`
-            : `<div style="text-align:center;padding:32px;color:var(--text-muted)">No ingredients added yet</div>`
-        }
-      </div>
-    </div>`;
+              ${
+                !std
+                  ? `<div style="background:var(--amber-glow);border:1px solid var(--amber-dim);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:var(--amber-dim)">
+                ⚠ No recipe standard set yet. <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="openStdModal('${m.item_id}','${m.item_name.replace(/'/g, "\\'")}')">Add Standard</button>
+              </div>`
+                  : ""
+              }
+
+              <!-- Ingredients table -->
+              <div class="section-title">Ingredients</div>
+              <table class="ing-table" id="ing-table-${m.item_id}">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Ingredient</th>
+                    <th>Type</th>
+                    <th>Qty</th>
+                    <th>Unit</th>
+                    <th>Cost/Unit</th>
+                    <th>Line Cost</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="ing-tbody">
+                  ${ings.map((r, i) => renderIngRow(r, i)).join("")}
+                </tbody>
+                <tfoot>
+                  ${renderAddRow(m.item_id)}
+                </tfoot>
+              </table>
+
+            </div>
+          </div>`;
       }
 
+      function renderIngRow(r, i) {
+        const cat = r.ingredients?.category || "";
+        const unitCost =
+          r.ingredients?.effective_cost ??
+          r.ingredients?.cost_per_usage_unit ??
+          null;
+        const lineCost = unitCost != null ? r.qty_usage_unit * unitCost : null;
+        return `
+          <tr id="ing-row-${r.id}">
+            <td class="muted">${i + 1}</td>
+            <td><strong>${r.ingredients?.item_name ?? r.ingredient_id}</strong></td>
+            <td>${cat === "Prep" ? '<span class="badge-prep">Prep</span>' : '<span class="badge-ing">Ingredient</span>'}</td>
+            <td class="mono">${fmtNum(r.qty_usage_unit)}</td>
+            <td class="muted">${r.usage_unit}</td>
+            <td class="mono muted">${unitCost != null ? fmtCurrency(unitCost) : "—"}</td>
+            <td class="mono text-amber">${lineCost != null ? fmtCurrency(lineCost) : "—"}</td>
+            <td style="white-space:nowrap">
+              <button class="btn-icon" title="Edit" onclick="startEditRow(${r.id},'${r.ingredient_id}',${r.qty_usage_unit},'${r.usage_unit}')">✏</button>
+              <button class="btn-icon" style="color:var(--red);margin-left:4px" title="Delete" onclick="deleteIng(${r.id},'${r.menu_item_id}')">✕</button>
+            </td>
+          </tr>`;
+      }
+
+      function renderAddRow(menuId) {
+        const ingOptions = buildIngOptions();
+        return `
+          <tr class="add-row" id="add-row">
+            <td style="color:var(--text-dim);font-size:12px">new</td>
+            <td>
+              <select class="inline-input" id="new-ing-id" onchange="autoFillUnit()">
+                <option value="">— select ingredient —</option>
+                ${ingOptions}
+              </select>
+            </td>
+            <td>—</td>
+            <td><input class="inline-input" type="number" id="new-ing-qty" placeholder="e.g. 100" min="0" step="0.01" style="width:90px" /></td>
+            <td>
+              <select class="inline-input" id="new-ing-unit" style="width:70px">
+                <option value="gr">gr</option>
+                <option value="ml">ml</option>
+                <option value="pcs">pcs</option>
+              </select>
+            </td>
+            <td colspan="2" style="color:var(--text-dim);font-size:12px">auto-calculated</td>
+            <td>
+              <button class="btn btn-primary btn-sm" onclick="addIngredientInline('${menuId}')">＋ Add</button>
+            </td>
+          </tr>`;
+      }
+
+      function buildIngOptions() {
+        const raw = ingredients.filter((i) => i.category === "Ingredient");
+        const prep = ingredients.filter((i) => i.category === "Prep");
+        let html = "";
+        if (raw.length)
+          html += `<optgroup label="Ingredient">${raw.map((i) => `<option value="${i.item_id}" data-unit="${i.usage_unit || "gr"}">${i.item_name}</option>`).join("")}</optgroup>`;
+        if (prep.length)
+          html += `<optgroup label="Prep">${prep.map((i) => `<option value="${i.item_id}" data-unit="${i.usage_unit || "gr"}">${i.item_name}</option>`).join("")}</optgroup>`;
+        return html;
+      }
+
+      function autoFillUnit() {
+        const sel = document.getElementById("new-ing-id");
+        const opt = sel.options[sel.selectedIndex];
+        const unit = opt?.dataset?.unit;
+        if (unit) document.getElementById("new-ing-unit").value = unit;
+      }
+
+      // ── Inline add ──────────────────────────────────
+      async function addIngredientInline(menuId) {
+        const ingId = document.getElementById("new-ing-id").value;
+        const qty = Number(document.getElementById("new-ing-qty").value);
+        const unit = document.getElementById("new-ing-unit").value;
+        if (!ingId) {
+          showToast("Select an ingredient", "error");
+          return;
+        }
+        if (!qty) {
+          showToast("Enter a quantity", "error");
+          return;
+        }
+        const { error } = await db
+          .from("recipe_ingredients")
+          .insert({
+            menu_item_id: menuId,
+            ingredient_id: ingId,
+            qty_usage_unit: qty,
+            usage_unit: unit,
+          });
+        if (error) {
+          handleSbError(error, "Add ingredient");
+          return;
+        }
+        showToast("Ingredient added!");
+        await reloadIngredients(menuId);
+      }
+
+      // ── Inline edit ─────────────────────────────────
+      function startEditRow(id, ingId, qty, unit) {
+        const row = document.getElementById(`ing-row-${id}`);
+        if (!row) return;
+        row.classList.add("editing");
+        const ingOptions = buildIngOptions();
+        row.innerHTML = `
+          <td class="muted">✏</td>
+          <td><select class="inline-input" id="edit-ing-id-${id}">${ingOptions}</select></td>
+          <td>—</td>
+          <td><input class="inline-input" type="number" id="edit-ing-qty-${id}" value="${qty}" style="width:90px" /></td>
+          <td><select class="inline-input" id="edit-ing-unit-${id}" style="width:70px">
+            <option value="gr" ${unit === "gr" ? "selected" : ""}>gr</option>
+            <option value="ml" ${unit === "ml" ? "selected" : ""}>ml</option>
+            <option value="pcs" ${unit === "pcs" ? "selected" : ""}>pcs</option>
+          </select></td>
+          <td colspan="2"></td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-primary btn-sm" onclick="saveEditRow(${id})">Save</button>
+            <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="reloadIngredients('${selectedMenu}')">Cancel</button>
+          </td>`;
+        // Set current ingredient
+        const sel = document.getElementById(`edit-ing-id-${id}`);
+        if (sel) sel.value = ingId;
+      }
+
+      async function saveEditRow(id) {
+        const ingId = document.getElementById(`edit-ing-id-${id}`).value;
+        const qty = Number(document.getElementById(`edit-ing-qty-${id}`).value);
+        const unit = document.getElementById(`edit-ing-unit-${id}`).value;
+        if (!qty) {
+          showToast("Enter a quantity", "error");
+          return;
+        }
+        const { error } = await db
+          .from("recipe_ingredients")
+          .update({
+            ingredient_id: ingId,
+            qty_usage_unit: qty,
+            usage_unit: unit,
+          })
+          .eq("id", id);
+        if (error) {
+          handleSbError(error, "Update ingredient");
+          return;
+        }
+        showToast("Ingredient updated!");
+        await reloadIngredients(selectedMenu);
+      }
+
+      async function deleteIng(id, menuId) {
+        if (!confirm("Remove this ingredient?")) return;
+        const { error } = await db
+          .from("recipe_ingredients")
+          .delete()
+          .eq("id", id);
+        if (error) {
+          handleSbError(error, "Delete ingredient");
+          return;
+        }
+        showToast("Ingredient removed");
+        await reloadIngredients(menuId);
+      }
+
+      // ── Menu modal ──────────────────────────────────
+      function generateMenuId() {
+        const existingIds = menuItems
+          .filter((i) => i.item_id.startsWith("MENU"))
+          .map((i) => i.item_id);
+        return generateId("MENU", existingIds);
+      }
+
+      function openMenuModal() {
+        document.getElementById("modal-menu-title").textContent =
+          "Add Menu Item";
+        document.getElementById("edit-menu-id-original").value = "";
+        document.getElementById("menu-id").value = generateMenuId();
+        document.getElementById("menu-name").value = "";
+        document.getElementById("menu-selling-price").value = "";
+        document.getElementById("menu-active").value = "true";
+        openModal("modal-menu");
+      }
+
+      function editMenu(itemId) {
+        const m = menuItems.find((x) => x.item_id === itemId);
+        if (!m) return;
+        document.getElementById("modal-menu-title").textContent =
+          "Edit Menu Item";
+        document.getElementById("edit-menu-id-original").value = m.item_id;
+        document.getElementById("menu-id").value = m.item_id;
+        document.getElementById("menu-name").value = m.item_name;
+        document.getElementById("menu-selling-price").value =
+          m.selling_price || "";
+        document.getElementById("menu-active").value = "true";
+        openModal("modal-menu");
+      }
+
+      async function saveMenu() {
+        const name = document.getElementById("menu-name").value.trim();
+        if (!name) {
+          showToast("Menu name is required", "error");
+          return;
+        }
+        const originalId = document.getElementById(
+          "edit-menu-id-original",
+        ).value;
+        const payload = {
+          item_id: document.getElementById("menu-id").value.trim(),
+          item_name: name,
+          category: "Menu",
+          selling_price:
+            Number(document.getElementById("menu-selling-price").value) || null,
+          is_active: document.getElementById("menu-active").value === "true",
+        };
+        let error;
+        if (originalId) {
+          ({ error } = await db
+            .from("items")
+            .update(payload)
+            .eq("item_id", originalId));
+        } else {
+          ({ error } = await db.from("items").insert(payload));
+        }
+        if (error) {
+          handleSbError(error, "Save menu");
+          return;
+        }
+        showToast(originalId ? "Menu updated!" : "Menu added!");
+        closeModal("modal-menu");
+        menuItems = [];
+        recipeIngredients = {};
+        standards = {};
+        costSummary = {};
+        await load();
+      }
+
+      // ── Standard modal ───────────────────────────────
       function openStdModal(id, name) {
         const std = standards[id] || {};
         document.getElementById("std-menu-id").value = id;
@@ -504,177 +778,6 @@
         standards[id] = payload;
         closeModal("modal-std");
         renderDetail();
-      }
-
-      function populateSelects() {
-        const menuSel = document.getElementById("ing-menu");
-        menuSel.innerHTML = menuItems
-          .map((m) => `<option value="${m.item_id}">${m.item_name}</option>`)
-          .join("");
-        const ingSel = document.getElementById("ing-ingredient");
-        const rawIngs = ingredients.filter((i) => i.category === "Ingredient");
-        const prepIngs = ingredients.filter((i) => i.category === "Prep");
-        let ingHtml = "";
-        if (rawIngs.length) {
-          ingHtml +=
-            `<optgroup label="Ingredient">` +
-            rawIngs
-              .map(
-                (i) => `<option value="${i.item_id}">${i.item_name}</option>`,
-              )
-              .join("") +
-            `</optgroup>`;
-        }
-        if (prepIngs.length) {
-          ingHtml +=
-            `<optgroup label="Prep">` +
-            prepIngs
-              .map(
-                (i) => `<option value="${i.item_id}">${i.item_name}</option>`,
-              )
-              .join("") +
-            `</optgroup>`;
-        }
-        ingSel.innerHTML = ingHtml;
-      }
-
-      function openIngModal(menuId) {
-        document.getElementById("modal-ing-title").textContent =
-          "Add Ingredient";
-        document.getElementById("edit-ing-id").value = "";
-        document.getElementById("ing-menu").value =
-          menuId || menuItems[0]?.item_id || "";
-        document.getElementById("ing-qty").value = "";
-        document.getElementById("ing-unit").value = "gr";
-        openModal("modal-ing");
-      }
-
-      function editIng(id, menuId, ingId, qty, unit) {
-        document.getElementById("modal-ing-title").textContent =
-          "Edit Ingredient";
-        document.getElementById("edit-ing-id").value = id;
-        document.getElementById("ing-menu").value = menuId;
-        document.getElementById("ing-ingredient").value = ingId;
-        document.getElementById("ing-qty").value = qty;
-        document.getElementById("ing-unit").value = unit;
-        openModal("modal-ing");
-      }
-
-      async function saveIngredient() {
-        const payload = {
-          menu_item_id: document.getElementById("ing-menu").value,
-          ingredient_id: document.getElementById("ing-ingredient").value,
-          qty_usage_unit: Number(document.getElementById("ing-qty").value),
-          usage_unit: document.getElementById("ing-unit").value,
-        };
-        if (!payload.qty_usage_unit) {
-          showToast("Enter a quantity", "error");
-          return;
-        }
-        const editId = document.getElementById("edit-ing-id").value;
-        let error;
-        if (editId) {
-          ({ error } = await db
-            .from("recipe_ingredients")
-            .update(payload)
-            .eq("id", editId));
-        } else {
-          ({ error } = await db.from("recipe_ingredients").insert(payload));
-        }
-        if (error) {
-          handleSbError(error, "Save ingredient");
-          return;
-        }
-        showToast(editId ? "Ingredient updated!" : "Ingredient added!");
-        closeModal("modal-ing");
-        // reload ingredients for this menu
-        const { data } = await db
-          .from("recipe_ingredients")
-          .select("*, ingredients:ingredient_id(item_name, usage_unit)")
-          .eq("menu_item_id", payload.menu_item_id);
-        recipeIngredients[payload.menu_item_id] = data || [];
-        renderMenuList();
-        if (selectedMenu === payload.menu_item_id) renderDetail();
-      }
-
-      async function deleteIng(id) {
-        if (!confirm("Remove this ingredient from the recipe?")) return;
-        const { error } = await db
-          .from("recipe_ingredients")
-          .delete()
-          .eq("id", id);
-        if (error) {
-          handleSbError(error, "Delete ingredient");
-          return;
-        }
-        showToast("Ingredient removed");
-        // reload
-        const { data } = await db
-          .from("recipe_ingredients")
-          .select("*, ingredients:ingredient_id(item_name, usage_unit)")
-          .eq("menu_item_id", selectedMenu);
-        recipeIngredients[selectedMenu] = data || [];
-        renderMenuList();
-        renderDetail();
-      }
-
-      function generateMenuId() {
-        const prefix = "MENU";
-        const existingIds = menuItems
-          .filter((i) => i.item_id.startsWith(prefix))
-          .map((i) => i.item_id);
-        return generateId(prefix, existingIds);
-      }
-
-      function openMenuModal() {
-        document.getElementById("modal-menu-title").textContent =
-          "Add Menu Item";
-        document.getElementById("edit-menu-id-original").value = "";
-        document.getElementById("menu-id").value = generateMenuId();
-        document.getElementById("menu-name").value = "";
-        document.getElementById("menu-selling-price").value = "";
-        document.getElementById("menu-active").value = "true";
-        openModal("modal-menu");
-      }
-
-      async function saveMenu() {
-        const name = document.getElementById("menu-name").value.trim();
-        if (!name) {
-          showToast("Menu name is required", "error");
-          return;
-        }
-        const originalId = document.getElementById(
-          "edit-menu-id-original",
-        ).value;
-        const payload = {
-          item_id: document.getElementById("menu-id").value.trim(),
-          item_name: name,
-          category: "Menu",
-          selling_price:
-            Number(document.getElementById("menu-selling-price").value) || null,
-          is_active: document.getElementById("menu-active").value === "true",
-        };
-        let error;
-        if (originalId) {
-          ({ error } = await db
-            .from("items")
-            .update(payload)
-            .eq("item_id", originalId));
-        } else {
-          ({ error } = await db.from("items").insert(payload));
-        }
-        if (error) {
-          handleSbError(error, "Save menu");
-          return;
-        }
-        showToast(originalId ? "Menu item updated!" : "Menu item added!");
-        closeModal("modal-menu");
-        // Reload and re-render
-        menuItems = [];
-        recipeIngredients = {};
-        standards = {};
-        costSummary = {};
-        await load();
       }
 
       document

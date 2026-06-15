@@ -3,85 +3,260 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Purchase — Cafe ERP</title>
+    <title>Receive Stock — Blue Heron ERP</title>
     <link rel="stylesheet" href="css/style.css" />
+    <style>
+      /* ── Receipt Entry Panel ── */
+      .receipt-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin-bottom: 24px;
+      }
+      .receipt-header {
+        display: grid;
+        grid-template-columns: 160px 1fr 1fr 200px;
+        gap: 16px;
+        margin-bottom: 20px;
+        align-items: end;
+      }
+      .receipt-lines-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 12px;
+      }
+      .receipt-lines-table th {
+        text-align: left;
+        padding: 6px 10px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border);
+      }
+      .receipt-lines-table td {
+        padding: 4px 4px;
+        vertical-align: middle;
+      }
+      .receipt-lines-table td input,
+      .receipt-lines-table td select {
+        width: 100%;
+        height: 36px;
+        font-size: 13px;
+      }
+      .receipt-lines-table td.line-total {
+        font-size: 13px;
+        color: var(--text-muted);
+        text-align: right;
+        padding-right: 8px;
+        min-width: 60px;
+      }
+      .receipt-lines-table td.line-action {
+        width: 36px;
+        text-align: center;
+      }
+      .receipt-lines-table tr.empty-line td input,
+      .receipt-lines-table tr.empty-line td select {
+        background: var(--surface-alt, #1a1a1a);
+        border-style: dashed;
+        opacity: 0.6;
+      }
+      .receipt-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+      }
+      .receipt-total {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .receipt-total span {
+        color: var(--amber, #f59e0b);
+        margin-left: 8px;
+        font-size: 18px;
+      }
+      .btn-add-line {
+        background: none;
+        border: 1px dashed var(--border);
+        color: var(--text-muted);
+        border-radius: var(--radius-sm, 4px);
+        padding: 6px 14px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn-add-line:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+
+      /* ── History table ── */
+      .history-group-date {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        padding: 8px 12px 4px;
+        background: var(--surface-alt, rgba(255, 255, 255, 0.03));
+      }
+
+      /* badge-red if missing */
+      .badge-red {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+      }
+    </style>
   </head>
   <body>
     <div class="layout">
       <div class="main">
         <div class="topbar">
-          <span class="topbar-title">Purchase Transactions</span>
+          <span class="topbar-title">Receive Stock</span>
           <div class="topbar-right">
-            <span class="status-dot"></span><span>Cafe ERP</span>
+            <span class="status-dot"></span><span>Blue Heron ERP</span>
           </div>
         </div>
+
         <div class="page-content">
           <div class="page-header">
             <div>
-              <h1>Purchases</h1>
-              <p>Record incoming stock from suppliers</p>
+              <h1>Receive Stock</h1>
+              <p>
+                Enter a receipt: set the date &amp; supplier once, then add all
+                items line by line.
+              </p>
             </div>
-            <button class="btn btn-primary" id="btn-add">
-              ＋ New Purchase
-            </button>
           </div>
 
-          <!-- Summary cards -->
-          <div class="stat-grid" style="margin-bottom: 24px">
-            <div class="stat-card">
-              <div class="stat-label">Total Transactions</div>
-              <div class="stat-value" id="stat-total">—</div>
+          <!-- ════ RECEIPT ENTRY PANEL ════ -->
+          <div class="receipt-panel">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 16px;
+              "
+            >
+              <strong style="font-size: 15px">New Receipt</strong>
+              <button class="btn btn-secondary btn-sm" id="btn-clear-receipt">
+                Clear
+              </button>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Total Spend</div>
-              <div class="stat-value" id="stat-spend" style="font-size: 18px">
-                —
+
+            <!-- Receipt header: date, supplier, invoice ref -->
+            <div class="receipt-header">
+              <div class="form-group" style="margin: 0">
+                <label class="form-label">Date</label>
+                <input type="date" id="r-date" class="form-control" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label class="form-label"
+                  >Supplier
+                  <span style="color: var(--text-muted); font-weight: 400"
+                    >(optional)</span
+                  ></label
+                >
+                <select id="r-supplier" class="form-control">
+                  <option value="">— No supplier —</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label class="form-label"
+                  >Invoice / Reference
+                  <span style="color: var(--text-muted); font-weight: 400"
+                    >(optional)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  id="r-ref"
+                  class="form-control"
+                  placeholder="e.g. INV-2024-001"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label class="form-label">Auto-process stock</label>
+                <select id="r-process" class="form-control">
+                  <option value="true">Yes — post to ledger</option>
+                  <option value="false">No — save as draft</option>
+                </select>
               </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Pending Process</div>
-              <div class="stat-value text-red" id="stat-pending">—</div>
+
+            <!-- Line items table -->
+            <table class="receipt-lines-table">
+              <thead>
+                <tr>
+                  <th style="width: 40%">Item</th>
+                  <th style="width: 18%">Qty</th>
+                  <th style="width: 18%">Unit Price (Rp)</th>
+                  <th style="width: 14%; text-align: right">Total</th>
+                  <th style="width: 36px"></th>
+                </tr>
+              </thead>
+              <tbody id="receipt-lines">
+                <!-- lines injected by JS -->
+              </tbody>
+            </table>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 16px">
+              <button class="btn-add-line" id="btn-add-line">
+                ＋ Add item
+              </button>
+            </div>
+
+            <div class="receipt-footer">
+              <div class="receipt-total">
+                Receipt total: <span id="r-grand-total">Rp 0</span>
+                <span
+                  style="
+                    color: var(--text-muted);
+                    font-size: 12px;
+                    margin-left: 12px;
+                  "
+                  id="r-line-count"
+                  >0 items</span
+                >
+              </div>
+              <button class="btn btn-primary" id="btn-save-receipt">
+                Save Receipt
+              </button>
             </div>
           </div>
 
-          <div class="filter-bar">
-            <div class="search-input-wrap">
-              <span class="search-icon">🔍</span>
-              <input
-                type="text"
-                id="search"
-                class="form-control"
-                placeholder="Search item, supplier, ref…"
-                oninput="applyFilter()"
-              />
-            </div>
-            <select
-              id="filter-status"
-              class="form-control"
-              style="width: 160px"
-              onchange="applyFilter()"
-            >
-              <option value="">All Status</option>
-              <option value="true">Processed</option>
-              <option value="false">Pending</option>
-            </select>
-            <input
-              type="date"
-              id="filter-from"
-              class="form-control"
-              style="width: 150px"
-              onchange="applyFilter()"
-            />
-            <input
-              type="date"
-              id="filter-to"
-              class="form-control"
-              style="width: 150px"
-              onchange="applyFilter()"
-            />
-          </div>
-
+          <!-- ════ HISTORY ════ -->
           <div class="card">
+            <div class="card-header">
+              <span class="card-title">Purchase History</span>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <div class="search-input-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input
+                    type="text"
+                    id="search"
+                    class="form-control"
+                    placeholder="Search item, ref…"
+                    oninput="applyFilter()"
+                    style="width: 180px"
+                  />
+                </div>
+                <select
+                  id="filter-status"
+                  class="form-control"
+                  style="width: 140px"
+                  onchange="applyFilter()"
+                >
+                  <option value="">All Status</option>
+                  <option value="true">Processed</option>
+                  <option value="false">Draft</option>
+                </select>
+              </div>
+            </div>
             <div class="table-wrap">
               <table class="erp-table">
                 <thead>
@@ -89,9 +264,9 @@
                     <th>Date</th>
                     <th>Supplier</th>
                     <th>Item</th>
-                    <th>Qty (Purchase Unit)</th>
+                    <th>Qty</th>
                     <th>Unit Price</th>
-                    <th>Total Cost</th>
+                    <th>Total</th>
                     <th>Ref</th>
                     <th>Status</th>
                     <th></th>
@@ -109,39 +284,33 @@
       </div>
     </div>
 
-    <!-- Modal -->
-    <div class="modal-overlay" id="modal-purchase">
+    <!-- Edit single row modal -->
+    <div class="modal-overlay" id="modal-edit">
       <div class="modal">
         <div class="modal-header">
-          <span class="modal-title" id="modal-p-title">New Purchase</span>
-          <button class="btn-icon" onclick="closeModal('modal-purchase')">
-            ✕
-          </button>
+          <span class="modal-title">Edit Purchase Line</span>
+          <button class="btn-icon" onclick="closeModal('modal-edit')">✕</button>
         </div>
         <div class="modal-body">
-          <input type="hidden" id="edit-p-id" />
+          <input type="hidden" id="edit-id" />
           <div class="form-grid">
             <div class="form-group">
               <label class="form-label">Date</label>
-              <input type="date" id="p-date" class="form-control" />
+              <input type="date" id="e-date" class="form-control" />
             </div>
             <div class="form-group">
               <label class="form-label">Supplier</label>
-              <select id="p-supplier" class="form-control"></select>
+              <select id="e-supplier" class="form-control"></select>
             </div>
             <div class="form-group" style="grid-column: 1/-1">
               <label class="form-label">Item</label>
-              <select
-                id="p-item"
-                class="form-control"
-                onchange="autofillUnit()"
-              ></select>
+              <select id="e-item" class="form-control"></select>
             </div>
             <div class="form-group">
-              <label class="form-label">Qty (Purchase Unit)</label>
+              <label class="form-label">Qty</label>
               <input
                 type="number"
-                id="p-qty"
+                id="e-qty"
                 class="form-control"
                 min="0"
                 step="0.01"
@@ -151,51 +320,30 @@
               <label class="form-label">Unit Price (Rp)</label>
               <input
                 type="number"
-                id="p-price"
+                id="e-price"
                 class="form-control"
                 min="0"
                 step="1"
               />
             </div>
             <div class="form-group">
-              <label class="form-label">Reference / Invoice</label>
-              <input
-                type="text"
-                id="p-ref"
-                class="form-control"
-                placeholder="Optional"
-              />
+              <label class="form-label">Reference</label>
+              <input type="text" id="e-ref" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Total Cost</label>
-              <input
-                type="text"
-                id="p-total"
-                class="form-control"
-                disabled
-                placeholder="Auto-calculated"
-                style="opacity: 0.7"
-              />
+              <label class="form-label">Status</label>
+              <select id="e-status" class="form-control">
+                <option value="false">Draft</option>
+                <option value="true">Processed</option>
+              </select>
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Processed Status</label>
-            <select id="p-status" class="form-control">
-              <option value="false">Pending</option>
-              <option value="true">Processed</option>
-            </select>
           </div>
         </div>
         <div class="modal-footer">
-          <button
-            class="btn btn-secondary"
-            onclick="closeModal('modal-purchase')"
-          >
+          <button class="btn btn-secondary" onclick="closeModal('modal-edit')">
             Cancel
           </button>
-          <button class="btn btn-primary" onclick="savePurchase()">
-            Save Purchase
-          </button>
+          <button class="btn btn-primary" onclick="saveEdit()">Save</button>
         </div>
       </div>
     </div>
@@ -205,66 +353,241 @@
     <script src="js/app.js"></script>
     <script>
       const db = getSupabase();
-      let all = [],
+      let allRows = [],
         suppliers = [],
         items = [];
 
-      async function load() {
+      // ── RECEIPT STATE ──
+      // Each line: { item_id, qty, unit_price }
+      let lines = [{ item_id: "", qty: "", unit_price: "" }];
+
+      // ── INIT ──
+      async function init() {
         const [pt, sup, itm] = await Promise.all([
           db
             .from("purchase_transactions")
             .select(
               "*, items(item_name, purchase_unit), suppliers(supplier_name)",
             )
-            .order("date", { ascending: false }),
-          db.from("suppliers").select("*").eq("is_active", true),
+            .order("date", { ascending: false })
+            .order("id", { ascending: false }),
+          db
+            .from("suppliers")
+            .select("*")
+            .eq("is_active", true)
+            .order("supplier_name"),
           db
             .from("items")
             .select("*")
             .eq("is_active", true)
-            .neq("category", "Final Menu")
+            // Only Raw items can be purchased
+            .in("category", ["Raw", "Raw Material", "Ingredient"])
             .order("item_name"),
         ]);
-        all = pt.data || [];
+        allRows = pt.data || [];
         suppliers = sup.data || [];
         items = itm.data || [];
-        renderStats();
-        render(all);
-        populateSelects();
+
+        populateSupplierDropdowns();
+        renderReceipt();
+        renderHistory(allRows);
+
+        // Default date to today
+        document.getElementById("r-date").value = new Date()
+          .toISOString()
+          .split("T")[0];
       }
 
-      function renderStats() {
-        document.getElementById("stat-total").textContent = all.length;
-        const spend = all.reduce((s, r) => s + (r.total_cost || 0), 0);
-        document.getElementById("stat-spend").textContent = fmtCurrency(spend);
-        document.getElementById("stat-pending").textContent = all.filter(
-          (r) => !r.processed_status,
-        ).length;
+      function populateSupplierDropdowns() {
+        const opts =
+          `<option value="">— No supplier —</option>` +
+          suppliers
+            .map(
+              (s) =>
+                `<option value="${s.supplier_id}">${s.supplier_name}</option>`,
+            )
+            .join("");
+        document.getElementById("r-supplier").innerHTML = opts;
+        document.getElementById("e-supplier").innerHTML = opts;
+        document.getElementById("e-item").innerHTML = items
+          .map(
+            (i) =>
+              `<option value="${i.item_id}">${i.item_name} (${i.purchase_unit ?? "unit"})</option>`,
+          )
+          .join("");
       }
 
-      function render(data) {
+      // ── RECEIPT RENDERING ──
+      function renderReceipt() {
+        const tbody = document.getElementById("receipt-lines");
+        tbody.innerHTML = lines
+          .map((line, idx) => {
+            const itemOpts =
+              `<option value="">— Select item —</option>` +
+              items
+                .map(
+                  (i) =>
+                    `<option value="${i.item_id}" ${i.item_id === line.item_id ? "selected" : ""}>${i.item_name} (${i.purchase_unit ?? "unit"})</option>`,
+                )
+                .join("");
+
+            const qty = parseFloat(line.qty) || 0;
+            const price = parseFloat(line.unit_price) || 0;
+            const lineTotal = qty * price;
+
+            return `<tr data-idx="${idx}">
+            <td><select class="form-control line-item" onchange="lineChanged(${idx},'item_id',this.value)">${itemOpts}</select></td>
+            <td><input type="number" class="form-control line-qty" value="${line.qty}" min="0" step="0.01" placeholder="0"
+                  onchange="lineChanged(${idx},'qty',this.value)"
+                  oninput="lineChanged(${idx},'qty',this.value)" /></td>
+            <td><input type="number" class="form-control line-price" value="${line.unit_price}" min="0" step="1" placeholder="0"
+                  onchange="lineChanged(${idx},'unit_price',this.value)"
+                  oninput="lineChanged(${idx},'unit_price',this.value)" /></td>
+            <td class="line-total">${lineTotal > 0 ? fmtCurrency(lineTotal) : "—"}</td>
+            <td class="line-action">
+              ${
+                lines.length > 1
+                  ? `<button class="btn-icon" style="color:var(--red)" title="Remove" onclick="removeLine(${idx})">✕</button>`
+                  : ""
+              }
+            </td>
+          </tr>`;
+          })
+          .join("");
+
+        updateReceiptTotals();
+      }
+
+      function lineChanged(idx, field, value) {
+        lines[idx][field] = value;
+        // Re-render only the total cell for performance
+        const row = document.querySelector(
+          `#receipt-lines tr[data-idx="${idx}"]`,
+        );
+        if (row) {
+          const qty = parseFloat(lines[idx].qty) || 0;
+          const price = parseFloat(lines[idx].unit_price) || 0;
+          const lineTotal = qty * price;
+          row.querySelector(".line-total").textContent =
+            lineTotal > 0 ? fmtCurrency(lineTotal) : "—";
+        }
+        updateReceiptTotals();
+      }
+
+      function updateReceiptTotals() {
+        const grandTotal = lines.reduce((sum, l) => {
+          return (
+            sum + (parseFloat(l.qty) || 0) * (parseFloat(l.unit_price) || 0)
+          );
+        }, 0);
+        const filledLines = lines.filter(
+          (l) => l.item_id && (parseFloat(l.qty) || 0) > 0,
+        );
+        document.getElementById("r-grand-total").textContent =
+          fmtCurrency(grandTotal);
+        document.getElementById("r-line-count").textContent =
+          `${filledLines.length} item${filledLines.length !== 1 ? "s" : ""}`;
+      }
+
+      function addLine() {
+        lines.push({ item_id: "", qty: "", unit_price: "" });
+        renderReceipt();
+        // Focus the new item select
+        setTimeout(() => {
+          const rows = document.querySelectorAll("#receipt-lines tr");
+          const lastRow = rows[rows.length - 1];
+          lastRow?.querySelector("select")?.focus();
+        }, 50);
+      }
+
+      function removeLine(idx) {
+        lines.splice(idx, 1);
+        renderReceipt();
+      }
+
+      function clearReceipt() {
+        lines = [{ item_id: "", qty: "", unit_price: "" }];
+        document.getElementById("r-ref").value = "";
+        renderReceipt();
+      }
+
+      // ── SAVE RECEIPT ──
+      async function saveReceipt() {
+        const date = document.getElementById("r-date").value;
+        const supplier_id = document.getElementById("r-supplier").value || null;
+        const ref = document.getElementById("r-ref").value.trim() || null;
+        const processed = document.getElementById("r-process").value === "true";
+
+        if (!date) {
+          showToast("Please set a date", "error");
+          return;
+        }
+
+        const validLines = lines.filter(
+          (l) => l.item_id && (parseFloat(l.qty) || 0) > 0,
+        );
+        if (!validLines.length) {
+          showToast("Add at least one item with a quantity", "error");
+          return;
+        }
+
+        const payload = validLines.map((l) => ({
+          date,
+          supplier_id,
+          item_id: l.item_id,
+          qty_purchase_unit: parseFloat(l.qty),
+          unit_price: parseFloat(l.unit_price) || 0,
+          ref,
+          processed_status: processed,
+        }));
+
+        const btn = document.getElementById("btn-save-receipt");
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+
+        const { error } = await db
+          .from("purchase_transactions")
+          .insert(payload);
+
+        btn.disabled = false;
+        btn.textContent = "Save Receipt";
+
+        if (error) {
+          handleSbError(error, "Save receipt");
+          return;
+        }
+
+        showToast(
+          `${validLines.length} item${validLines.length > 1 ? "s" : ""} saved!`,
+        );
+        clearReceipt();
+        init(); // reload history
+      }
+
+      // ── HISTORY ──
+      function renderHistory(data) {
         const tbody = document.getElementById("purchase-tbody");
         if (!data.length) {
-          tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">↓</div><p>No purchase records</p></div></td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">↓</div><p>No purchase records yet</p></div></td></tr>`;
           return;
         }
         tbody.innerHTML = data
           .map(
             (r) => `
-    <tr>
-      <td class="muted">${fmtDate(r.date)}</td>
-      <td>${r.suppliers?.supplier_name ?? r.supplier_id ?? "—"}</td>
-      <td><strong>${r.items?.item_name ?? r.item_id}</strong></td>
-      <td class="mono">${fmtNum(r.qty_purchase_unit)} <span style="color:var(--text-dim)">${r.items?.purchase_unit ?? ""}</span></td>
-      <td class="muted">${fmtCurrency(r.unit_price)}</td>
-      <td class="text-amber fw-mono">${fmtCurrency(r.total_cost)}</td>
-      <td class="muted">${r.ref ?? "—"}</td>
-      <td><span class="badge ${r.processed_status ? "badge-green" : "badge-amber"}">${r.processed_status ? "Processed" : "Pending"}</span></td>
-      <td style="display:flex;gap:4px">
-        <button class="btn-icon" title="Edit" onclick="editRow(${r.id})">✏</button>
-        <button class="btn-icon" title="Delete" style="color:var(--red)" onclick="deleteRow(${r.id})">✕</button>
-      </td>
-    </tr>`,
+          <tr>
+            <td class="muted">${fmtDate(r.date)}</td>
+            <td>${r.suppliers?.supplier_name ?? "—"}</td>
+            <td><strong>${r.items?.item_name ?? r.item_id}</strong></td>
+            <td class="mono">${fmtNum(r.qty_purchase_unit)} <span style="color:var(--text-dim)">${r.items?.purchase_unit ?? ""}</span></td>
+            <td class="muted">${r.unit_price ? fmtCurrency(r.unit_price) : "—"}</td>
+            <td class="text-amber fw-mono">${r.total_cost ? fmtCurrency(r.total_cost) : "—"}</td>
+            <td class="muted">${r.ref ?? "—"}</td>
+            <td><span class="badge ${r.processed_status ? "badge-green" : "badge-amber"}">${r.processed_status ? "Processed" : "Draft"}</span></td>
+            <td style="display:flex;gap:4px">
+              <button class="btn-icon" title="Edit" onclick="editRow(${r.id})">✏</button>
+              <button class="btn-icon" title="Delete" style="color:var(--red)" onclick="deleteRow(${r.id})">✕</button>
+            </td>
+          </tr>`,
           )
           .join("");
       }
@@ -272,88 +595,61 @@
       function applyFilter() {
         const q = document.getElementById("search").value.toLowerCase();
         const st = document.getElementById("filter-status").value;
-        const fr = document.getElementById("filter-from").value;
-        const to = document.getElementById("filter-to").value;
-        render(
-          all.filter((r) => {
-            const name = (r.items?.item_name ?? r.item_id ?? "").toLowerCase();
-            const sup = (
-              r.suppliers?.supplier_name ??
-              r.supplier_id ??
-              ""
-            ).toLowerCase();
+        renderHistory(
+          allRows.filter((r) => {
+            const name = (r.items?.item_name ?? "").toLowerCase();
             const ref = (r.ref ?? "").toLowerCase();
+            const sup = (r.suppliers?.supplier_name ?? "").toLowerCase();
             return (
-              (!q || name.includes(q) || sup.includes(q) || ref.includes(q)) &&
-              (st === "" || String(r.processed_status) === st) &&
-              (!fr || r.date >= fr) &&
-              (!to || r.date <= to)
+              (!q || name.includes(q) || ref.includes(q) || sup.includes(q)) &&
+              (st === "" || String(r.processed_status) === st)
             );
           }),
         );
       }
 
-      function populateSelects() {
-        document.getElementById("p-supplier").innerHTML =
-          `<option value="">— No Supplier —</option>` +
-          suppliers
-            .map(
-              (s) =>
-                `<option value="${s.supplier_id}">${s.supplier_name}</option>`,
-            )
-            .join("");
-        document.getElementById("p-item").innerHTML = items
-          .map(
-            (i) =>
-              `<option value="${i.item_id}" data-unit="${i.purchase_unit ?? ""}">${i.item_name} (${i.purchase_unit ?? "pcs"})</option>`,
-          )
-          .join("");
-      }
-
-      function autofillUnit() {}
-
-      function calcTotal() {
-        const qty = parseFloat(document.getElementById("p-qty").value) || 0;
-        const price = parseFloat(document.getElementById("p-price").value) || 0;
-        document.getElementById("p-total").value =
-          qty && price ? fmtCurrency(qty * price) : "";
-      }
-
-      document.getElementById("p-qty").addEventListener("input", calcTotal);
-      document.getElementById("p-price").addEventListener("input", calcTotal);
-
-      function resetForm() {
-        document.getElementById("modal-p-title").textContent = "New Purchase";
-        document.getElementById("edit-p-id").value = "";
-        document.getElementById("p-date").value = new Date()
-          .toISOString()
-          .split("T")[0];
-        document.getElementById("p-supplier").value = "";
-        document.getElementById("p-qty").value = "";
-        document.getElementById("p-price").value = "";
-        document.getElementById("p-ref").value = "";
-        document.getElementById("p-total").value = "";
-        document.getElementById("p-status").value = "false";
-      }
-
+      // ── EDIT SINGLE ROW ──
       function editRow(id) {
-        const r = all.find((x) => x.id === id);
+        const r = allRows.find((x) => x.id === id);
         if (!r) return;
-        document.getElementById("modal-p-title").textContent = "Edit Purchase";
-        document.getElementById("edit-p-id").value = r.id;
-        document.getElementById("p-date").value = r.date;
-        document.getElementById("p-supplier").value = r.supplier_id ?? "";
-        document.getElementById("p-item").value = r.item_id;
-        document.getElementById("p-qty").value = r.qty_purchase_unit;
-        document.getElementById("p-price").value = r.unit_price;
-        document.getElementById("p-ref").value = r.ref ?? "";
-        document.getElementById("p-total").value = fmtCurrency(r.total_cost);
-        document.getElementById("p-status").value = String(r.processed_status);
-        openModal("modal-purchase");
+        document.getElementById("edit-id").value = r.id;
+        document.getElementById("e-date").value = r.date;
+        document.getElementById("e-supplier").value = r.supplier_id ?? "";
+        document.getElementById("e-item").value = r.item_id;
+        document.getElementById("e-qty").value = r.qty_purchase_unit;
+        document.getElementById("e-price").value = r.unit_price ?? "";
+        document.getElementById("e-ref").value = r.ref ?? "";
+        document.getElementById("e-status").value = String(r.processed_status);
+        openModal("modal-edit");
+      }
+
+      async function saveEdit() {
+        const id = document.getElementById("edit-id").value;
+        const payload = {
+          date: document.getElementById("e-date").value,
+          supplier_id: document.getElementById("e-supplier").value || null,
+          item_id: document.getElementById("e-item").value,
+          qty_purchase_unit: Number(document.getElementById("e-qty").value),
+          unit_price: Number(document.getElementById("e-price").value) || 0,
+          ref: document.getElementById("e-ref").value.trim() || null,
+          processed_status:
+            document.getElementById("e-status").value === "true",
+        };
+        const { error } = await db
+          .from("purchase_transactions")
+          .update(payload)
+          .eq("id", id);
+        if (error) {
+          handleSbError(error, "Edit");
+          return;
+        }
+        showToast("Updated!");
+        closeModal("modal-edit");
+        init();
       }
 
       async function deleteRow(id) {
-        if (!confirm("Delete this purchase record?")) return;
+        if (!confirm("Delete this purchase line?")) return;
         const { error } = await db
           .from("purchase_transactions")
           .delete()
@@ -362,64 +658,45 @@
           handleSbError(error, "Delete");
           return;
         }
-        showToast("Purchase deleted");
-        load();
+        showToast("Deleted");
+        init();
       }
 
-      async function savePurchase() {
-        const payload = {
-          date: document.getElementById("p-date").value,
-          supplier_id: document.getElementById("p-supplier").value || null,
-          item_id: document.getElementById("p-item").value,
-          qty_purchase_unit: Number(document.getElementById("p-qty").value),
-          unit_price: Number(document.getElementById("p-price").value),
-          ref: document.getElementById("p-ref").value.trim() || null,
-          processed_status:
-            document.getElementById("p-status").value === "true",
-        };
-        if (!payload.date || !payload.item_id || !payload.qty_purchase_unit) {
-          showToast("Date, Item and Qty are required", "error");
-          return;
-        }
-        const editId = document.getElementById("edit-p-id").value;
-        let error;
-        if (editId) {
-          ({ error } = await db
-            .from("purchase_transactions")
-            .update(payload)
-            .eq("id", editId));
-        } else {
-          ({ error } = await db.from("purchase_transactions").insert(payload));
-        }
-        if (error) {
-          handleSbError(error, "Save purchase");
-          return;
-        }
+      // ── EVENTS ──
+      document
+        .getElementById("btn-add-line")
+        .addEventListener("click", addLine);
+      document
+        .getElementById("btn-clear-receipt")
+        .addEventListener("click", () => {
+          if (
+            lines.some((l) => l.item_id || l.qty) &&
+            !confirm("Clear the receipt?")
+          )
+            return;
+          clearReceipt();
+        });
+      document
+        .getElementById("btn-save-receipt")
+        .addEventListener("click", saveReceipt);
 
-        // Ledger write + last_purchase_cost update are handled, automatically by the purchase_after_save trigger in Supabase.
-        // if (payload.processed_status && !editId) {
-        //   const itemData = items.find(i => i.item_id === payload.item_id);
-        //   const inQty = payload.qty_purchase_unit * (itemData?.conversion_to_usage ?? 1);
-        //   await db.from('stock_ledger').insert({
-        //     date: payload.date,
-        //     item_id: payload.item_id,
-        //     in_qty: inQty,
-        //     out_qty: 0,
-        //     source: 'PURCHASE',
-        //     ref: payload.ref ?? null,
-        //   });
-        // }
+      // Tab from last line's unit price → add new line
+      document
+        .getElementById("receipt-lines")
+        .addEventListener("keydown", (e) => {
+          if (e.key === "Tab" && !e.shiftKey) {
+            const rows = document.querySelectorAll("#receipt-lines tr");
+            const lastRow = rows[rows.length - 1];
+            if (
+              lastRow?.querySelector(".line-price") === document.activeElement
+            ) {
+              e.preventDefault();
+              addLine();
+            }
+          }
+        });
 
-        showToast(editId ? "Purchase updated!" : "Purchase saved!");
-        closeModal("modal-purchase");
-        load();
-      }
-
-      document.getElementById("btn-add").addEventListener("click", () => {
-        resetForm();
-        openModal("modal-purchase");
-      });
-      load();
+      init();
     </script>
   </body>
 </html>

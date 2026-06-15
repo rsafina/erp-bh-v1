@@ -57,8 +57,8 @@
               style="width: 130px"
               onchange="applyFilter()"
             >
-              <option value="">Active &amp; Inactive</option>
               <option value="true">Active Only</option>
+              <option value="">Active &amp; Inactive</option>
               <option value="false">Inactive Only</option>
             </select>
           </div>
@@ -215,7 +215,7 @@
           .order("item_id");
         if (error) return handleSbError(error, "Load items");
         allItems = data;
-        renderTable(data);
+        applyFilter();
       }
 
       function renderTable(data) {

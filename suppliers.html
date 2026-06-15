@@ -19,7 +19,7 @@
           <div class="page-header">
             <div>
               <h1>Suppliers</h1>
-              <p>Manage your supplier contacts and payment terms</p>
+              <p>Manage your supplier contacts</p>
             </div>
             <button class="btn btn-primary" id="btn-add-supplier">
               ＋ Add Supplier
@@ -57,7 +57,6 @@
                     <th>Supplier ID</th>
                     <th>Name</th>
                     <th>Contact</th>
-                    <th>Payment Terms</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th></th>
@@ -65,7 +64,7 @@
                 </thead>
                 <tbody id="suppliers-tbody">
                   <tr class="loading-row">
-                    <td colspan="7"><div class="loader"></div></td>
+                    <td colspan="6"><div class="loader"></div></td>
                   </tr>
                 </tbody>
               </table>
@@ -107,22 +106,13 @@
                 placeholder="e.g. PT Maju Jaya"
               />
             </div>
-            <div class="form-group">
+            <div class="form-group" style="grid-column: 1/-1">
               <label class="form-label">Contact</label>
               <input
                 type="text"
                 id="s-contact"
                 class="form-control"
                 placeholder="Phone / Email"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Payment Terms</label>
-              <input
-                type="text"
-                id="s-terms"
-                class="form-control"
-                placeholder="e.g. Net 30"
               />
             </div>
           </div>
@@ -168,7 +158,7 @@
       function render(data) {
         const tbody = document.getElementById("suppliers-tbody");
         if (!data.length) {
-          tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🏭</div><p>No suppliers found</p></div></td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🏭</div><p>No suppliers found</p></div></td></tr>`;
           return;
         }
         tbody.innerHTML = data
@@ -178,7 +168,6 @@
       <td class="mono">${r.supplier_id}</td>
       <td><strong>${r.supplier_name}</strong></td>
       <td class="muted">${r.contact ?? "—"}</td>
-      <td class="muted">${r.payment_terms ?? "—"}</td>
       <td><span class="badge ${r.is_active ? "badge-green" : "badge-red"}">${r.is_active ? "Active" : "Inactive"}</span></td>
       <td class="muted">${fmtDate(r.created_at)}</td>
       <td><button class="btn-icon" title="Edit" onclick="editRow('${r.supplier_id}')">✏</button></td>
@@ -205,7 +194,7 @@
         document.getElementById("modal-supplier-title").textContent =
           "Add Supplier";
         document.getElementById("edit-supplier-original").value = "";
-        ["s-id", "s-name", "s-contact", "s-terms"].forEach(
+        ["s-id", "s-name", "s-contact"].forEach(
           (id) => (document.getElementById(id).value = ""),
         );
         document.getElementById("s-id").disabled = false;
@@ -222,7 +211,6 @@
         document.getElementById("s-id").disabled = true;
         document.getElementById("s-name").value = r.supplier_name;
         document.getElementById("s-contact").value = r.contact ?? "";
-        document.getElementById("s-terms").value = r.payment_terms ?? "";
         document.getElementById("s-active").value = String(r.is_active);
         openModal("modal-supplier");
       }
@@ -232,8 +220,6 @@
           supplier_id: document.getElementById("s-id").value.trim(),
           supplier_name: document.getElementById("s-name").value.trim(),
           contact: document.getElementById("s-contact").value.trim() || null,
-          payment_terms:
-            document.getElementById("s-terms").value.trim() || null,
           is_active: document.getElementById("s-active").value === "true",
         };
         if (!payload.supplier_id || !payload.supplier_name) {

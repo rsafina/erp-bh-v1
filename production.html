@@ -263,7 +263,7 @@
           db
             .from("items")
             .select("*")
-            .eq("category", "Final Menu")
+            .eq("category", "Menu")
             .eq("is_active", true),
           db.from("recipe_standard").select("*"),
         ]);
@@ -509,28 +509,9 @@
           return;
         }
 
-        // Write to stock ledger: deduct ingredients, add menu item output || Ledger deduction (ingredients OUT) + output credit (menu item IN) are handled automatically by the production_after_save trigger in Supabase. eversal on edit is also handled by the same trigger — no app-side logic needed.
-        // if (!editId) {
-        //   const ings = await db.from('recipe_ingredients').select('*').eq('menu_item_id', payload.menu_item_id);
-        //   const actualBatch = payload.std_yield_gram ? payload.actual_yield_gram / payload.std_yield_gram : payload.intended_batch;
-        //   const ledgerRows = (ings.data || []).map(r => ({
-        //     date: payload.date,
-        //     item_id: r.ingredient_id,
-        //     in_qty: 0,
-        //     out_qty: r.qty_usage_unit * actualBatch,
-        //     source: 'PROD_USE',
-        //     ref: payload.batch_no,
-        //   }));
-        //   ledgerRows.push({
-        //     date: payload.date,
-        //     item_id: payload.menu_item_id,
-        //     in_qty: payload.actual_yield_gram,
-        //     out_qty: 0,
-        //     source: 'PROD_OUT',
-        //     ref: payload.batch_no,
-        //   });
-        //   if (ledgerRows.length) await db.from('stock_ledger').insert(ledgerRows);
-        // }
+        // Stock ledger entries (ingredient deductions + output credit)
+        // are handled automatically by the production_after_save trigger in Supabase.
+        // The trigger also computes batch_ingredient_cost and cost_per_portion.
 
         showToast(editId ? "Batch updated!" : "Batch saved!");
         closeModal("modal-prod");

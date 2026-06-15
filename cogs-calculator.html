@@ -587,6 +587,9 @@
           unit: "gr",
           unitCost: 0,
           source: "",
+          purchaseMode: false, // toggle: show purchase-price helper
+          purchasePrice: 0, // total price paid (e.g. Rp 12.000)
+          packageQty: 0, // package size (e.g. 1 kg)
         });
         renderRows();
         // focus first input of the new row
@@ -658,24 +661,75 @@
             <button class="btn-icon" style="color:var(--red)" onclick="removeRow(${r.id})" title="Remove">✕</button>
           </div>`;
         } else {
+          const lineCost = r.qty > 0 && r.unitCost > 0 ? r.qty * r.unitCost : 0;
+
+          // ── cost cell: always shows direct input + derived hint ──
+          const derivedHint =
+            r.purchaseMode && r.unitCost > 0
+              ? `<div style="font-size:10px;color:var(--amber);margin-top:2px">= ${fmtCurrency(r.unitCost)} / ${r.unit}</div>`
+              : `<div style="font-size:10px;color:var(--text-dim);margin-top:2px">price per ${r.unit}</div>`;
+
+          // ── purchase helper sub-row (only visible in purchase mode) ──
+          const purchaseSubRow = r.purchaseMode
+            ? `
+            <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--amber-dim);border-radius:var(--radius);margin-top:4px">
+              <span style="font-size:11px;color:var(--text-dim);white-space:nowrap">💡 Purchase price:</span>
+              <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">Rp</span>
+              <input type="number" class="form-control" id="row-pprice-${r.id}" value="${r.purchasePrice || ""}" min="0" step="any"
+                placeholder="e.g. 12000" oninput="onPurchasePriceChange(${r.id}, this.value)"
+                style="font-size:13px;width:110px;flex-shrink:0" />
+              <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">per</span>
+              <input type="number" class="form-control" id="row-pkgqty-${r.id}" value="${r.packageQty || ""}" min="0" step="any"
+                placeholder="e.g. 1000" oninput="onPackageQtyChange(${r.id}, this.value)"
+                style="font-size:13px;width:90px;flex-shrink:0" />
+              <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">${r.unit}</span>
+              <span style="font-size:11px;color:var(--text-dim);margin-left:4px">→</span>
+              <span style="font-size:12px;color:var(--amber);font-weight:600;white-space:nowrap">
+                ${r.unitCost > 0 ? `${fmtCurrency(r.unitCost)} / ${r.unit}` : "—"}
+              </span>
+              <button type="button" onclick="togglePurchaseMode(${r.id})"
+                style="margin-left:auto;font-size:11px;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;white-space:nowrap"
+                title="Close helper">
+                ✕ close
+              </button>
+            </div>`
+            : "";
+
           return `
-          <div class="ing-row" id="ing-row-${r.id}">
-            <div>
-              <span class="badge badge-amber" style="font-size:10px">Custom</span>
+          <div id="ing-row-${r.id}" style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;transition:border-color 0.15s;" onmouseenter="this.style.borderColor='var(--amber-dim)'" onmouseleave="this.style.borderColor='var(--border)'">
+            <div style="display:grid;grid-template-columns:160px 1fr 90px 100px 120px 36px;gap:8px;align-items:center">
+              <div><span class="badge badge-amber" style="font-size:10px">Custom</span></div>
+              <input type="text" class="form-control" id="row-name-${r.id}" value="${escHtml(r.name)}"
+                placeholder="Ingredient name" oninput="onCustomNameChange(${r.id}, this.value)" style="font-size:13px" />
+              <input type="number" class="form-control" id="row-qty-${r.id}" value="${r.qty || ""}" min="0" step="any"
+                placeholder="Qty" oninput="onQtyChange(${r.id}, this.value)" style="font-size:13px" />
+              <select class="form-control" id="row-unit-${r.id}" onchange="onUnitChange(${r.id}, this.value)" style="font-size:13px">
+                ${["gr", "kg", "ml", "l", "tsp", "tbsp", "cup", "pcs"].map((u) => `<option ${r.unit === u ? "selected" : ""}>${u}</option>`).join("")}
+              </select>
+              <div>
+                <input type="number" class="form-control" id="row-cost-${r.id}"
+                  value="${r.purchaseMode ? (r.unitCost > 0 ? r.unitCost.toFixed(2) : "") : r.unitCost || ""}"
+                  min="0" step="any"
+                  placeholder="Cost / ${r.unit}"
+                  oninput="onCustomCostChange(${r.id}, this.value)"
+                  ${r.purchaseMode ? 'readonly style="font-size:12px;background:var(--surface);color:var(--text-dim);cursor:not-allowed"' : 'style="font-size:12px"'} />
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
+                  ${derivedHint}
+                  ${
+                    !r.purchaseMode
+                      ? `<button type="button" onclick="togglePurchaseMode(${r.id})"
+                    style="font-size:10px;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;white-space:nowrap"
+                    title="Calculate from purchase price">💡</button>`
+                      : ""
+                  }
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                <div class="line-cost-display">${lineCost > 0 ? fmtCurrency(lineCost) : "—"}</div>
+                <button class="btn-icon" style="color:var(--red)" onclick="removeRow(${r.id})" title="Remove">✕</button>
+              </div>
             </div>
-            <input type="text" class="form-control" id="row-name-${r.id}" value="${escHtml(r.name)}"
-              placeholder="Ingredient name" oninput="onCustomNameChange(${r.id}, this.value)" style="font-size:13px" />
-            <input type="number" class="form-control" id="row-qty-${r.id}" value="${r.qty || ""}" min="0" step="any"
-              placeholder="Qty" oninput="onQtyChange(${r.id}, this.value)" style="font-size:13px" />
-            <select class="form-control" id="row-unit-${r.id}" onchange="onUnitChange(${r.id}, this.value)" style="font-size:13px">
-              ${["gr", "kg", "ml", "l", "tsp", "tbsp", "cup", "pcs"].map((u) => `<option ${r.unit === u ? "selected" : ""}>${u}</option>`).join("")}
-            </select>
-            <div>
-              <input type="number" class="form-control" id="row-cost-${r.id}" value="${r.unitCost || ""}" min="0" step="any"
-                placeholder="Cost/unit" oninput="onCustomCostChange(${r.id}, this.value)" style="font-size:12px" />
-              <div style="font-size:10px;color:var(--text-dim);margin-top:2px">price per ${r.unit}</div>
-            </div>
-            <button class="btn-icon" style="color:var(--red)" onclick="removeRow(${r.id})" title="Remove">✕</button>
+            ${purchaseSubRow}
           </div>`;
         }
       }
@@ -717,7 +771,12 @@
         const row = rows.find((r) => r.id === id);
         if (!row) return;
         row.unit = value;
+        // if in purchase mode, re-derive unitCost with new unit
+        if (row.type === "custom" && row.purchaseMode) {
+          derivePurchaseCost(row);
+        }
         recalc();
+        if (row.type === "custom" && row.purchaseMode) renderRows();
       }
 
       function onCustomNameChange(id, value) {
@@ -731,6 +790,71 @@
         row.unitCost = Number(value) || 0;
         recalc();
         updateLineCostDisplay(id);
+      }
+
+      // ── Purchase-mode helpers ──────────────────────────────
+      function togglePurchaseMode(id) {
+        const row = rows.find((r) => r.id === id);
+        if (!row) return;
+        row.purchaseMode = !row.purchaseMode;
+        // seed purchase fields from existing unitCost when switching to purchase mode
+        if (row.purchaseMode && row.unitCost > 0 && !row.purchasePrice) {
+          row.purchasePrice = row.unitCost;
+          row.packageQty = 1;
+        }
+        renderRows();
+        // focus first purchase field
+        setTimeout(() => {
+          const el = document.getElementById(
+            row.purchaseMode ? `row-pprice-${id}` : `row-cost-${id}`,
+          );
+          if (el) el.focus();
+        }, 50);
+      }
+
+      // Unit conversion factors to grams/ml (base)
+      const UNIT_TO_BASE = {
+        gr: 1,
+        kg: 1000,
+        ml: 1,
+        l: 1000,
+        tsp: 5,
+        tbsp: 15,
+        cup: 240,
+        pcs: 1,
+      };
+
+      function derivePurchaseCost(row) {
+        if (!row.purchasePrice || !row.packageQty) {
+          row.unitCost = 0;
+          return;
+        }
+        // price per packageQty units → price per 1 usage unit
+        // e.g. Rp 12.000 per 1 kg → Rp 12.000 / 1000 gr = Rp 12 / gr
+        const pkgInBase = row.packageQty * (UNIT_TO_BASE[row.unit] ?? 1);
+        const usageInBase = 1 * (UNIT_TO_BASE[row.unit] ?? 1);
+        // simplified: since package unit = usage unit, just divide price by packageQty
+        row.unitCost =
+          pkgInBase > 0 ? (row.purchasePrice / pkgInBase) * usageInBase : 0;
+      }
+
+      function onPurchasePriceChange(id, value) {
+        const row = rows.find((r) => r.id === id);
+        if (!row) return;
+        row.purchasePrice = Number(value) || 0;
+        derivePurchaseCost(row);
+        recalc();
+        renderRows();
+      }
+
+      function onPackageQtyChange(id, value) {
+        const row = rows.find((r) => r.id === id);
+        if (!row) return;
+        row.packageQty = Number(value) || 0;
+        derivePurchaseCost(row);
+        recalc();
+        updateLineCostDisplay(id);
+        renderRows();
       }
 
       function updateLineCostDisplay(id) {

@@ -75,9 +75,8 @@ function setActiveNav() {
 //   Masters (set up once) → Transactions (daily) → Reports (check)
 const NAV_HTML = `
 <nav class="sidebar">
-  <div class="sidebar-logo">
-    <div class="logo-text">☕ Blue Heron</div>
-    <div class="logo-sub">Kitchen Inventory</div>
+  <div class="sidebar-logo" style="align-items:center;">
+    <img src="assets/logo.png" alt="Blue Heron Logo" style="height:80px;" />
   </div>
   <div class="sidebar-nav">
     <div class="nav-section">Overview</div>
